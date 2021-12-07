@@ -293,13 +293,31 @@ def parse_attributes(lines):
 
             type, tb_id, value = attr_textbound_value.split()
 
-            # Add attribute to dictionary
-            assert tb_id not in attributes
-            attributes[tb_id] = Attribute( \
+            attr_ob = Attribute( \
                     id = attr_id,
                     type_ = type,
                     textbound = tb_id,
                     value = value)
+
+
+            if tb_id in attributes:
+                # attribute defined for textbound already, but value and type match
+                # ok
+                if (attributes[tb_id].type_ == attr_ob.type_) and \
+                   (attributes[tb_id].value == attr_ob.value):
+                   pass
+
+                # attribute defined for text found already an there's a conflict between the new and old value
+                # raise error
+                else:
+                    logging.warn("Attribute already exists for textbound")
+                    logging.warn(f"Existing attribute: {attributes[tb_id]}")
+                    logging.warn(f"New attribute:      {attr_ob}")
+                    raise ValueError(f"Attribute already defined for textbound")
+
+            # Add attribute to dictionary
+            attributes[tb_id] = attr_ob
+
     return attributes
 
 

@@ -25,30 +25,29 @@ import shutil
 from utils.custom_observer import CustomObserver
 from utils.proj_setup import make_and_clear
 
-from config.constants import CV, FIT, PREDICT, SCORE, PROB, SUBSET, TRAIN, DEV, TEST, CORPUS_FILE, PARAMS_FILE, TYPE, SUBTYPE
-from config.constants import ANATOMY_SUBTYPES, ANATOMY, ENTITIES, PREDICTIONS_JSON
-from config.constants import LESION_FINDING, MEDICAL_PROBLEM, TRAIN, DEV, TEST, FINDING
+
+
 import config.paths as paths
 from corpus.tokenization import get_tokenizer, get_context
-from models.model_anatomy import ModelAnatomy
+
 from layers.transformer_misc import get_length_percentiles
 from spert_utils.config_setup import dict_to_config_file, get_prediction_file
 from spert_utils.spert_io import merge_spert_files, spert2corpus
-from config import anatomy_config
+
 from spert_utils.config_setup import create_event_types_path, get_dataset_stats
 from spert_utils.convert_brat import RELATION_DEFAULT
 from scoring.scoring import score_docs
-from config.constants import EXACT, PARTIAL, OVERLAP, LABEL, SUBTYPE_DEFAULT
+
 from spert_utils.spert_io import swap_type2subtype, map_type2subtype, plot_loss
 from spert_utils.spert_scoring import score_spert_docs
 
-# from spert_utils.scoring import score_files
-from config.constants import NO_SUBTYPE, NO_CONCAT, CONCAT_LOGITS, CONCAT_PROBS, LABEL_BIAS
+import config.constants as constants
+
 
 
 
 # Define experiment and load ingredients
-ex = Experiment('step102_anatomy_extraction')
+ex = Experiment('step110_extraction')
 
 
 
@@ -61,12 +60,12 @@ def cfg():
     """
     Paths
     """
-    source = "radiology"
-    source_file = os.path.join(paths.brat_import, source, CORPUS_FILE)
+    source = "sdoh"
+    source_file = os.path.join(paths.brat_import, source, constants.CORPUS_FILE)
 
-    output_dir = paths.anatomy_extraction
+    output_dir = paths.extraction
 
-    mode = TRAIN
+    mode = constants.TRAIN
     subdir = None
 
     if subdir is None:
@@ -81,10 +80,8 @@ def cfg():
 
     config_file = os.path.join(destination, "config.conf")
 
-
-
-    train_subset = TRAIN
-    valid_subset = DEV
+    train_subset = constants.TRAIN
+    valid_subset = constants.DEV
 
     train_path = os.path.join(destination, 'data_train.json')
     valid_path = os.path.join(destination, 'data_valid.json')
@@ -92,21 +89,20 @@ def cfg():
 
     # corpus preprocessing
     mapping = {}
-    mapping["event_map"] = anatomy_config.event_map
-    mapping["relation_map"] = anatomy_config.relation_map
-    mapping["tb_map"] = anatomy_config.tb_map
-    mapping["attr_map"] = anatomy_config.attr_map
+    mapping["event_map"] = None
+    mapping["relation_map"] = None
+    mapping["tb_map"] = None
+    mapping["attr_map"] = None
+
+    # predict ANATOMY sub types with entity classifier
+    types_config = {}
+    types_config["relations"] = [RELATION_DEFAULT]
+    types_config["entities"] = constants.ENTITIES
+    types_config["subtypes"] = constants.SUBTYPES
 
 
-    subtype2type = {}
-    subtype2type[FINDING] = FINDING
-    for s in ANATOMY_SUBTYPES:
-        subtype2type[s] = ANATOMY
-
-    anatomy_only = False
-
-    entity_types = [FINDING, ANATOMY]
-
+    entity_types = constants.ENTITIES
+    event_types = constants.EVENT_TYPES
 
     spert_path = '/home/lybarger/spert_plus/'
 
@@ -116,7 +112,7 @@ def cfg():
 
 
 
-    label = 'anatomy'
+    label = 'default'
     model_type = 'spert'
     model_path = "emilyalsentzer/Bio_ClinicalBERT" #'bert-base-cased'
     tokenizer_path = model_path
@@ -142,7 +138,7 @@ def cfg():
     log_path = f'{destination}/log/'
     save_path = f'{destination}/save/'
 
-    subtype_classification = NO_SUBTYPE
+    subtype_classification = constants.CONCAT_LOGITS
     projection_size = 100
     projection_dropout = 0.0
     include_sent_task = False
@@ -191,16 +187,6 @@ def cfg():
     model_config["concat_word_piece_logits"] = concat_word_piece_logits
     model_config["device"] = device
 
-
-
-    # predict ANATOMY sub types with entity classifier
-    types_config = {}
-    types_config["relations"] = [RELATION_DEFAULT]
-    types_config["entities"] = [FINDING] + ANATOMY_SUBTYPES
-    types_config["subtypes"] = [FINDING, ANATOMY]
-    types_config["sent_labels"] = [FINDING] + ANATOMY_SUBTYPES
-
-
     # Scratch directory
     make_and_clear(destination)
 
@@ -210,40 +196,40 @@ def cfg():
     ex.observers.append(file_observ)
     ex.observers.append(cust_observ)
 
+#
+#
+# def filter_for_anatomy(file, type=ANATOMY):
+#     doc = json.load(open(file, 'r'))
+#
+#
+#     for d in doc:
+#         d["relations"] = []
+#         assert len(d["entities"]) == len(d["subtypes"])
+#         keep = [i for i, x in enumerate(d["entities"]) if x["type"] == type]
+#         d["entities"] = [d["entities"][i] for i in keep]
+#         d["subtypes"] = [d["subtypes"][i] for i in keep]
+#
+#     json.dump(doc, open(file, 'w'))
 
 
-def filter_for_anatomy(file, type=ANATOMY):
-    doc = json.load(open(file, 'r'))
-
-
-    for d in doc:
-        d["relations"] = []
-        assert len(d["entities"]) == len(d["subtypes"])
-        keep = [i for i, x in enumerate(d["entities"]) if x["type"] == type]
-        d["entities"] = [d["entities"][i] for i in keep]
-        d["subtypes"] = [d["subtypes"][i] for i in keep]
-
-    json.dump(doc, open(file, 'w'))
-
-
-def add_sent_labels(file, types, label_type=TYPE):
-
-    doc = json.load(open(file, 'r'))
-
-    for d in doc:
-        sent_labels = {t:0 for t in types}
-        for entity in d["entities"]:
-            label = entity[label_type]
-            sent_labels[label] = 1
-        d['sent_labels'] = sent_labels
-
-    json.dump(doc, open(file, 'w'))
+# def add_sent_labels(file, types, label_type=constants.TYPE):
+#
+#     doc = json.load(open(file, 'r'))
+#
+#     for d in doc:
+#         sent_labels = {t:0 for t in types}
+#         for entity in d["entities"]:
+#             label = entity[label_type]
+#             sent_labels[label] = 1
+#         d['sent_labels'] = sent_labels
+#
+#     json.dump(doc, open(file, 'w'))
 
 @ex.automain
 def main(source_file, destination, config_file, model_config, spert_path, \
         types_config, mapping, fast_count,
-        train_path, train_subset, valid_path, valid_subset,
-        subtype2type, entity_types, types_path, anatomy_only):
+        train_path, train_subset, valid_path, valid_subset, event_types,
+        entity_types, types_path):
 
     '''
     Prepare spert inputs
@@ -259,17 +245,15 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     for path, subset in [(train_path, train_subset), (valid_path, valid_subset)]:
         corpus.events2spert( \
                     include = subset,
+                    event_types = event_types,
                     entity_types = entity_types,
                     path = path,
                     sample_count = fast_count)
 
-        if anatomy_only:
-            filter_for_anatomy(path)
+        z = lsakdjflaskdjf
+
 
         swap_type2subtype(path, path)
-
-        if model_config["include_sent_task"]:
-            add_sent_labels(path, types=types_config["sent_labels"], label_type=TYPE)
 
         get_dataset_stats(dataset_path=path, dest_path=destination, name=subset)
 

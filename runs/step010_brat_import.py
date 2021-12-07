@@ -22,19 +22,15 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-#from corpus.corpus_brat import CorpusBrat
-from corpus.corpus_brat_incidental import CorpusBratIncidental
 from corpus.corpus_brat import CorpusBrat
-from corpus.anatomy_norm import merge_anatomy_normalization
-
 from utils.custom_observer import CustomObserver
 from utils.proj_setup import make_and_clear
-import config.constants as constants
-import config.paths as paths
+
 from corpus.tokenization import get_tokenizer
 
-from utils.brat_import_incidental import get_label_freq, anatomy_histogram_orig, anatomy_histogram_merged, trig_span_histogram
-from config.constants import TRAIN, DEV, TEST
+import config.paths as paths
+from config.constants import TRAIN, DEV, TEST, QC
+from config.constants import LABELED_ARGUMENTS, REQUIRED_ARGUMENTS, EVENT_TYPES, CORPUS_FILE
 
 # Define experiment and load ingredients
 ex = Experiment('step010_brat_import')
@@ -48,47 +44,37 @@ def cfg():
 
 
 
-    source = 'radiology2'
-    events_dir = paths.brat_radiology_events
-    anatomy_dir = paths.brat_radiology_anatomy
+    source = 'sdoh'
 
-    dir = paths.brat_import
+    if source == 'sdoh':
+        source_dir = paths.brat_annotation
+    else:
+        raise ValueError("invalid source")
+
+    output_dir = paths.brat_import
 
     fast_run = False
-    fast_count = 10 if fast_run else None
+    fast_count = 100 if fast_run else None
+    annotator_position = 0
+    labeled_arguments = LABELED_ARGUMENTS
+    required_arguments = REQUIRED_ARGUMENTS
+    event_types = EVENT_TYPES
+
+    id_pattern = None
 
     skip = None
 
-    anatomy_corpus_object = CorpusBrat
-    corpus_object = CorpusBratIncidental
-    rm_extra_lb = False
-    snap_textbounds = False
+    corpus_object = CorpusBrat
 
-    brat_dir = "radiology_anatomy"
-
-
-    attr_map = {'Lesion-Maligancy-Value': "Lesion-Malignancy-Value"}
-
-
-    splits_file = None if fast_run else '/home/lybarger/incidentalomas/resources/radiology_500_splits.csv'
-
-    train_size = 0.7
-    dev_size = 0.1
-    test_size = 0.2
-
-    shuffle = True
-    random_state = 1
-
-    subsets = [TRAIN, DEV, TEST]
+    brat_dir = "brat"
 
     '''
     Paths
     '''
     if fast_run:
-        destination = os.path.join(dir,  source+'_FAST_RUN')
+        destination = os.path.join(output_dir,  source+'_FAST_RUN')
     else:
-        destination = os.path.join(dir,  source)
-
+        destination = os.path.join(output_dir,  source)
 
     # Scratch directory
     make_and_clear(destination)
@@ -100,85 +86,61 @@ def cfg():
     ex.observers.append(cust_observ)
 
 
+def tag_function(id, annotator_position=0, subset_position=1, source_position=2):
 
+    parts = id.split(os.sep)
 
+    annotator = parts[annotator_position]
 
+    subset = parts[subset_position]
+    assert subset in [TRAIN, DEV, TEST, QC]
 
+    source = parts[source_position]
+
+    tags = set([annotator, subset, source])
+
+    return tags
 
 
 @ex.automain
-def main(destination, events_dir, anatomy_dir, fast_run, corpus_object, anatomy_corpus_object, \
-        fast_count, snap_textbounds, skip, attr_map, brat_dir, splits_file,
-        train_size, dev_size, test_size, shuffle, random_state, subsets):
+def main(destination, source_dir, fast_run, corpus_object,  \
+        fast_count, skip, brat_dir, annotator_position,
+        labeled_arguments, required_arguments, id_pattern, event_types):
 
     tokenizer = get_tokenizer()
 
     '''
-    Anatomy
-    '''
-    logging.info('Importing anatomy from:\t{}'.format(anatomy_dir))
-    anatomy = anatomy_corpus_object()
-    anatomy.import_dir(anatomy_dir, \
-                    n = fast_count,
-                    skip = skip)
-
-
-    anatomy_histogram_orig(anatomy, path=destination)
-
-    '''
     Events
     '''
-    logging.info('Importing events from:\t{}'.format(events_dir))
+    logging.info('Importing from:\t{}'.format(source_dir))
     corpus = corpus_object()
-    corpus.import_dir(events_dir, \
+    corpus.import_dir(source_dir, \
                     n = fast_count,
-                    skip = skip)
+                    skip = skip,
+                    tag_function = tag_function)
 
-    corpus.assign_splits( \
-                train_size = train_size,
-                dev_size = dev_size,
-                test_size = test_size,
-                splits_file = splits_file,
-                random_state = random_state,
-                shuffle = shuffle,
-                path = destination,
-                include = None,
-                exclude = None)
+    corpus.span_histogram(path=destination, entity_types=event_types)
 
-    corpus.map_(attr_map=attr_map, path=destination)
-
-    modifications = []
-    for doc in corpus.docs():
-        mods = merge_anatomy_normalization(doc, anatomy[doc.id])
-        modifications.extend(mods)
-    df = pd.DataFrame(modifications)
-    f = os.path.join(destination, "anatomy_span_modification.csv")
-    df.to_csv(f)
-
-    anatomy_histogram_merged(corpus, path=destination, subset='train')
-
-    trig_span_histogram(corpus, path=destination)
-
-    if snap_textbounds:
-        corpus.snap_textbounds()
 
     corpus.histogram(tokenizer=tokenizer, path=destination)
-    corpus.quality_check(path=destination)
+
+    corpus.quality_check( \
+                    path = destination,
+                    annotator_position = annotator_position,
+                    labeled_arguments = labeled_arguments,
+                    required_arguments = required_arguments,
+                    id_pattern = id_pattern)
+
     corpus.annotation_summary(path=destination)
     corpus.label_summary(path=destination)
     corpus.tag_summary(path=destination)
 
-    dir = os.path.join(destination, brat_dir)
-    corpus.write_brat(path=dir)
-
-    for subset in subsets:
-        dir = os.path.join(destination, f'brat_{subset}')
-        corpus.write_brat(path=dir, include=subset)
-
+    #dir = os.path.join(destination, brat_dir)
+    #corpus.write_brat(path=dir)
 
     # Save annotated corpus
     logging.info('Saving corpus')
-    fn_corpus = os.path.join(destination, constants.CORPUS_FILE)
+    fn_corpus = os.path.join(destination, CORPUS_FILE)
     joblib.dump(corpus, fn_corpus)
 
 

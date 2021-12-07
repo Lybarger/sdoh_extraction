@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 
 from config.constants import ENCODING, ARG_1, ARG_2, ROLE, TYPE, SUBTYPE, EVENT_TYPE, ENTITIES, COUNT, RELATIONS, ENTITIES, EVENTS
-from config.constants import SPACY_MODEL, SUBTYPE_DEFAULT
+from config.constants import SPACY_MODEL, SUBTYPE_DEFAULT, TRIGGER
 from corpus.corpus import Corpus
 from corpus.document_brat import DocumentBrat
 from corpus.brat import get_brat_files
@@ -55,7 +55,8 @@ class CorpusBrat(Corpus):
     def import_dir(self, path, \
                         n = None,
                         skip = None,
-                        ann_map = None):
+                        ann_map = None,
+                        tag_function = None):
 
         tokenizer = spacy.load(self.spacy_model)
 
@@ -104,12 +105,19 @@ class CorpusBrat(Corpus):
             id = os.path.splitext(os.path.relpath(fn_txt, path))[0]
 
             if (skip is None) or (id not in skip):
+
+                if tag_function is None:
+                    tags = None
+                else:
+                    tags = tag_function(id)
+
+
                 # print(id)
                 doc = self.document_class( \
                     id = id,
                     text = text,
                     ann = ann,
-                    tags = None,
+                    tags = tags,
                     tokenizer = tokenizer
                     )
 
@@ -389,3 +397,25 @@ class CorpusBrat(Corpus):
             logging.info(f"{k} = {v}")
 
         return True
+
+    def span_histogram(self, path=None, filename="span_histogram.csv", entity_types=None):
+
+        entities = self.entities(entity_types=entity_types)
+
+        counter = Counter()
+        for doc in entities:
+            for entity in doc:
+                assert (entity_types is None) or (entity.type_ in entity_types)
+                text = entity.text.lower()
+                counter[(entity.type_, entity.subtype, text)] += 1
+
+        counts = [(type, subtype, text, count) for (type, subtype, text), count in counter.items()]
+        df = pd.DataFrame(counts, columns=["type", "subtype", "text", "count"])
+
+        df.sort_values('count', ascending=False, inplace=True)
+
+        fn = os.path.join(path, filename)
+        df.to_csv(fn)
+
+
+        return df

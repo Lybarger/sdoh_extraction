@@ -3,6 +3,111 @@ from collections import OrderedDict, Counter
 import numpy as np
 import re
 
+
+
+
+
+'''
+Determinants
+'''
+ALCOHOL = 'Alcohol'
+COUNTRY = 'Country'
+DRUG = 'Drug'
+EMPLOYMENT = 'Employment'
+ENVIRO_EXPOSURE = 'EnviroExposure'
+GENDER_ID = 'GenderID'
+INSURANCE = 'Insurance'
+LIVING_STATUS = 'LivingStatus'
+PHYS_ACTIVITY = 'PhysActivity'
+RACE = 'Race'
+SEXUAL_ORIENT = 'SexualOrient'
+TOBACCO = 'Tobacco'
+
+'''
+Entities
+'''
+
+TRIGGER = 'Trigger'
+
+# Span and class - new
+STATUS_TIME             = 'StatusTime'
+STATUS_TIME_VAL         = 'StatusTimeVal'
+
+DEGREE                  = 'Degree'
+DEGREE_VAL              = 'DegreeVal'
+
+STATUS_EMPLOY           = 'StatusEmploy'
+STATUS_EMPLOY_VAL       = 'StatusEmployVal'
+
+STATUS_INSURE           = 'StatusInsure'
+STATUS_INSURE_VAL       = 'StatusInsureVal'
+
+TYPE_GENDER_ID          = 'TypeGenderID'
+TYPE_GENDER_ID_VAL      = 'TypeGenderIDVal'
+
+TYPE_LIVING             = 'TypeLiving'
+TYPE_LIVING_VAL         = 'TypeLivingVal'
+
+TYPE_SEXUAL_ORIENT      = 'TypeSexualOrient'
+TYPE_SEXUAL_ORIENT_VAL  = 'TypeSexualOrientVal'
+
+# Span and class - previous
+STATUS = 'Status'
+STATE = 'State'
+
+# Span only - new
+AMOUNT      = 'Amount'
+DURATION    = 'Duration'
+FREQUENCY   = 'Frequency'
+HISTORY     = 'History'
+METHOD      = 'Method'
+TYPE        = 'Type'
+
+EMPLOYED = "employed"
+UNEMPLOYED = "unemployed"
+RETIRED = "retired"
+ON_DISABILITY = "on_disability"
+STUDENT = "student"
+HOMEMAKER = "homemaker"
+YES = "yes"
+NO = "no"
+NONE = "none"
+CURRENT = "current"
+PAST = "past"
+FUTURE = "future"
+TRANSGENDER = "transgender"
+CISGENDER = "cisgender"
+ALONE = "alone"
+WITH_FAMILY = "with_family"
+WITH_OTHERS = "with_others"
+HOMOSEXUAL="homosexual"
+BISEXUAL = "bisexual"
+HETEROSEXUAL = "heterosexual"
+
+EVENT_TYPES = [ALCOHOL, DRUG, TOBACCO, LIVING_STATUS, EMPLOYMENT]
+
+LABELED_ARGUMENTS = [STATUS_TIME, STATUS_EMPLOY, TYPE_LIVING]
+SPAN_ONLY_ARGUMENTS = [AMOUNT, DURATION, FREQUENCY, HISTORY, METHOD, TYPE]
+ENTITIES = EVENT_TYPES + LABELED_ARGUMENTS + SPAN_ONLY_ARGUMENTS
+
+SUBTYPES_BY_ARGUMENT = {}
+SUBTYPES_BY_ARGUMENT[STATUS_TIME] = [NONE, CURRENT, PAST, FUTURE]
+SUBTYPES_BY_ARGUMENT[STATUS_EMPLOY] = [EMPLOYED, UNEMPLOYED, RETIRED, ON_DISABILITY, STUDENT, HOMEMAKER]
+SUBTYPES_BY_ARGUMENT[TYPE_LIVING] = [ALONE, WITH_FAMILY, WITH_OTHERS]
+
+SUBTYPES = [v for k, V in SUBTYPES_BY_ARGUMENT.items() for v in V]
+
+REQUIRED_ARGUMENTS = OrderedDict()
+REQUIRED_ARGUMENTS[ALCOHOL] = STATUS_TIME
+REQUIRED_ARGUMENTS[DRUG] = STATUS_TIME
+REQUIRED_ARGUMENTS[TOBACCO] = STATUS_TIME
+REQUIRED_ARGUMENTS[LIVING_STATUS] = TYPE_LIVING
+REQUIRED_ARGUMENTS[EMPLOYMENT] = STATUS_EMPLOY
+
+
+
+
+
 SPAN_ONLY = "Span_only"
 
 
@@ -111,110 +216,9 @@ SUBTYPE_DEFAULT = "none"
 
 SPACY_MODEL = 'en_core_web_sm'
 
-ANATOMY = 'Anatomy'
-
-LESION_FINDING = "Lesion-Description"
-LESION_ANATOMY = "Lesion-Anatomy"
-LESION_SIZE = "Lesion-Size"
-LESION_SIZE_TREND = "Lesion-Size-Trend"
-LESION_COUNT = "Lesion-Count"
-LESION_MALIGNANCY = "Lesion-Malignancy"
-LESION_METASTASIS = "Lesion-Metastasis"
-LESION_NEOPLASM = "Lesion-Neoplasm"
-LESION_ASSERTION = "Lesion-Assertion"
-LESION_CHARACTERISTIC = "Lesion-Characteristic"
-
-LESION_SPAN_ONLY_ARGUMENTS = [LESION_ANATOMY, LESION_SIZE, LESION_COUNT, LESION_CHARACTERISTIC]
-
-MEDICAL_PROBLEM = "Medical-Problem"
-MEDICAL_ANATOMY = "Medical-Anatomy"
-MEDICAL_ASSERTION = "Medical-Assertion"
-MEDICAL_COUNT = "Medical-Count"
-
-MEDICAL_SPAN_ONLY_ARGUMENTS = [MEDICAL_ANATOMY, MEDICAL_COUNT]
-
-INDICATION_DESCRIPTION = "Indication-Description"
-
-EVENT_TYPES = [LESION_FINDING, MEDICAL_PROBLEM, INDICATION_DESCRIPTION]
-SPAN_ONLY_ARGUMENTS = LESION_SPAN_ONLY_ARGUMENTS + MEDICAL_SPAN_ONLY_ARGUMENTS
-
-FINDING = 'Finding'
-
-
-
-INCIDENTAL = 'incidental'
-
-
-ANATOMY_SUBTYPES = '''Abdomen
-Adrenal_gland
-Back
-Bile_Duct
-Bladder
-Brain
-Breast
-Cardiovascular_system
-Diaphragm
-Digestive_system
-Ear
-Esophagus
-Eye
-Fallopian_tube
-Gallbladder
-Head
-Heart
-Integumentary_system
-Intestine
-Kidney
-Laryngeal
-Liver
-Lower_limb
-Lung
-Lymphatic_system
-Mediastinum
-Mouth
-Musculoskeletal_system
-Nasal_sinus
-Neck
-Nervous_system
-Nose
-Ovary
-Pancreas
-Pelvis
-Penis
-Pericardial_sac
-Peritoneal_sac
-Pharynx
-Pleural_sac
-Prostate
-Retroperitoneal
-Seminal_vesicle
-Spleen
-Stomach
-Testis
-Thorax
-Thyroid
-Tracheobronchial
-Upper_limb
-Urethra
-Uterus
-Vagina
-Vas_deferens
-Vulva
-Whole_body
-'''.splitlines()
-
-ANATOMY_ABBREVIATION_PATS = [('_', ' '), (' ?system', ""), ("Cardiovascular", 'Cardio'), ('Musculoskeletal', 'MSK')]
-ANATOMY_ABBREVIATION = {v: v for v in ANATOMY_SUBTYPES}
-for pat, rep in ANATOMY_ABBREVIATION_PATS:
-    ANATOMY_ABBREVIATION = {k: re.sub(pat, rep, v) for k, v in ANATOMY_ABBREVIATION.items()}
-
 DARK_RED = tuple(np.array([184,    84, 80])/255)
 DARK_BLUE = tuple(np.array([108,  142, 191])/255)
 DARK_GOLD = tuple(np.array([224,  172, 46])/255)
 DARK_GREEN = tuple(np.array([127, 177, 98])/255)
 DARK_GRAY = tuple(np.array([102, 102, 102])/255)
 DARK_ORANGE = tuple(np.array([215, 155, 0])/255)
-ALMOST_BLACK = tuple(np.array([48, 48, 48])/255)
-
-#Medical-Anatomy
-#Lesion-Anatomy
