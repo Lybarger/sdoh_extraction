@@ -49,7 +49,8 @@ def create_relation(head, tail, relation=RELATION_DEFAULT):
 
 
 
-def doc2spert(doc, event_types=None, entity_types=None, skip_duplicate_spans=True):
+def doc2spert(doc, event_types=None, entity_types=None, \
+            skip_duplicate_spans=True):
 
 
     sent_count = len(doc.tokens)
@@ -69,13 +70,17 @@ def doc2spert(doc, event_types=None, entity_types=None, skip_duplicate_spans=Tru
 
         for i, argument in enumerate(event.arguments):
 
+
             tok_check = doc.tokens[argument.sent_index][argument.token_start:argument.token_end]
             assert tok_check == argument.tokens
 
             span = (argument.token_start, argument.token_end)
             entity =  (argument.type_,   argument.token_start, argument.token_end)
 
-            st = argument.type_ if argument.subtype is None else argument.subtype
+            st = argument.subtype
+            if st is None:
+                st = SUBTYPE_DEFAULT
+
             subtype = (st, argument.token_start, argument.token_end)
 
             if entity in entities[argument.sent_index]:

@@ -307,7 +307,7 @@ def brat2events(event_dict, tb_dict, attr_dict, \
 
         # iterate over arguments
         arguments = []
-        for i, (argument_type, tb_id) in enumerate(event_brat.arguments.items()):
+        for i, (argument_role, tb_id) in enumerate(event_brat.arguments.items()):
 
             entity = copy.deepcopy(entities[tb_id])
 

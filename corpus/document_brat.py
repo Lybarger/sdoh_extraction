@@ -12,7 +12,7 @@ from config.constants import EVENT, RELATION, TEXTBOUND, ATTRIBUTE, ENTITIES, RE
 from corpus.document import Document
 from corpus.brat import get_annotations, write_txt, write_ann, get_next_index, Textbound, Attribute
 from corpus.labels import tb2entities, tb2relations, brat2events
-
+from corpus.brat import Attribute, get_max_id
 
 
 from spert_utils.spert_io import doc2spert
@@ -558,6 +558,57 @@ class DocumentBrat(Document):
 
 
         return counter
+
+    def transfer_subtype_value(self, argument_pairs):
+
+        assert isinstance(argument_pairs, list)
+        assert isinstance(argument_pairs[0], (list, tuple))
+
+        argument_pairs = [tuple(pair) for pair in argument_pairs]
+
+        # iterate over source - target arguments type pairs
+        counts = Counter()
+        for source_arg, target_arg in argument_pairs:
+
+            # iterate over all events in document
+            for event_id, event in self.event_dict.items():
+
+                # to get dictionary map between argument types and textbound ids
+                arguments = event.arguments
+                arg_type_to_tb_id = OrderedDict()
+                for arg_role, tb_id in arguments.items():
+                    arg_type = self.tb_dict[tb_id].type_
+                    arg_type_to_tb_id[arg_type] = tb_id
+
+                # check if both the source and target are present
+                if (source_arg in arg_type_to_tb_id) and \
+                   (target_arg in arg_type_to_tb_id):
+
+                    source_tb = arg_type_to_tb_id[source_arg]
+                    target_tb = arg_type_to_tb_id[target_arg]
+
+                    # determine if attribute defined for source
+                    if source_tb in self.attr_dict:
+
+                        source_attr = self.attr_dict[source_tb]
+                        source_value = source_attr.value
+
+                        attr_id = get_max_id(self.attr_dict)+1
+                        attr_id = f"A{attr_id}"
+
+                        attr_ob = Attribute( \
+                                id =        attr_id,
+                                type_ =     target_arg,
+                                textbound = target_tb,
+                                value =     source_value)
+
+                        if target_tb in self.attr_dict:
+                            logging.warn(f"target text bound in attr_dict: {target_tb} in {self.attr_dict.keys()}")
+                        self.attr_dict[target_tb] = attr_ob
+
+                        counts[(target_arg, source_value)] += 1
+
+        return counts
 
 
 

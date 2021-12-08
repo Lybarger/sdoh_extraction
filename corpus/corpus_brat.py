@@ -419,3 +419,19 @@ class CorpusBrat(Corpus):
 
 
         return df
+
+    def transfer_subtype_value(self, argument_pairs, include=None, exclude=None, path=None):
+
+
+        counts = Counter()
+        for doc in self.docs(include=include, exclude=exclude):
+            counts += doc.transfer_subtype_value(argument_pairs)
+
+        counts = [{'argument_type': a, 'argument_value': b, 'count': c} \
+                                                for (a, b), c in counts.items()]
+        df = pd.DataFrame(counts)
+        if path is not None:
+            f = os.path.join(path, "transfer_subtype_value_counts.csv")
+            df.to_csv(f, index=False)
+
+        return df

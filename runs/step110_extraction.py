@@ -72,7 +72,7 @@ def cfg():
         subdir = mode
 
     fast_run = True
-    fast_count = 20 if fast_run else None
+    fast_count = 200 if fast_run else None
 
     destination = os.path.join(output_dir, subdir, description)
     if fast_run:
@@ -94,14 +94,22 @@ def cfg():
     mapping["tb_map"] = None
     mapping["attr_map"] = None
 
+    transfer_argument_pairs = [ \
+            (constants.STATUS_TIME, constants.ALCOHOL),
+            (constants.STATUS_TIME, constants.DRUG),
+            (constants.STATUS_TIME, constants.TOBACCO),
+            (constants.TYPE_LIVING, constants.LIVING_STATUS),
+            (constants.STATUS_EMPLOY, constants.EMPLOYMENT)
+            ]
+
     # predict ANATOMY sub types with entity classifier
     types_config = {}
     types_config["relations"] = [RELATION_DEFAULT]
-    types_config["entities"] = constants.ENTITIES
-    types_config["subtypes"] = constants.SUBTYPES
+    types_config["entities"] = constants.EVENT_TYPES + constants.SPAN_ONLY_ARGUMENTS
+    types_config["subtypes"] = constants.SUBTYPES + [constants.SUBTYPE_DEFAULT]
 
 
-    entity_types = constants.ENTITIES
+    entity_types = constants.EVENT_TYPES + constants.SPAN_ONLY_ARGUMENTS
     event_types = constants.EVENT_TYPES
 
     spert_path = '/home/lybarger/spert_plus/'
@@ -121,7 +129,7 @@ def cfg():
     eval_batch_size = 2
     neg_entity_count = 100
     neg_relation_count = 100
-    epochs = 1 if fast_run else 20
+    epochs = 3 if fast_run else 20
     lr = 5e-5
     lr_warmup = 0.1
     weight_decay = 0.01
@@ -147,7 +155,7 @@ def cfg():
     include_word_piece_task = False
     concat_word_piece_logits = False
 
-    device = 3
+    device = 0
 
     model_config = OrderedDict()
     model_config["label"] = label
@@ -196,40 +204,11 @@ def cfg():
     ex.observers.append(file_observ)
     ex.observers.append(cust_observ)
 
-#
-#
-# def filter_for_anatomy(file, type=ANATOMY):
-#     doc = json.load(open(file, 'r'))
-#
-#
-#     for d in doc:
-#         d["relations"] = []
-#         assert len(d["entities"]) == len(d["subtypes"])
-#         keep = [i for i, x in enumerate(d["entities"]) if x["type"] == type]
-#         d["entities"] = [d["entities"][i] for i in keep]
-#         d["subtypes"] = [d["subtypes"][i] for i in keep]
-#
-#     json.dump(doc, open(file, 'w'))
-
-
-# def add_sent_labels(file, types, label_type=constants.TYPE):
-#
-#     doc = json.load(open(file, 'r'))
-#
-#     for d in doc:
-#         sent_labels = {t:0 for t in types}
-#         for entity in d["entities"]:
-#             label = entity[label_type]
-#             sent_labels[label] = 1
-#         d['sent_labels'] = sent_labels
-#
-#     json.dump(doc, open(file, 'w'))
-
 @ex.automain
 def main(source_file, destination, config_file, model_config, spert_path, \
         types_config, mapping, fast_count,
         train_path, train_subset, valid_path, valid_subset, event_types,
-        entity_types, types_path):
+        entity_types, types_path, transfer_argument_pairs):
 
     '''
     Prepare spert inputs
@@ -241,19 +220,24 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     # apply corpus mapping
     corpus.map_(**mapping, path=destination)
 
+    corpus.transfer_subtype_value(transfer_argument_pairs, path=destination)
+
     # create formatted data
+    logging.info(f"Pre processing data")
     for path, subset in [(train_path, train_subset), (valid_path, valid_subset)]:
+
+        logging.info("")
+        logging.info(f"subset:          {subset}")
+        logging.info(f"event_types:     {event_types}")
+        logging.info(f"entity_types:    {entity_types}")
+        logging.info(f"path:            {path}")
+        logging.info(f"fast_count:      {fast_count}")
         corpus.events2spert( \
                     include = subset,
                     event_types = event_types,
                     entity_types = entity_types,
                     path = path,
                     sample_count = fast_count)
-
-        z = lsakdjflaskdjf
-
-
-        swap_type2subtype(path, path)
 
         get_dataset_stats(dataset_path=path, dest_path=destination, name=subset)
 
@@ -292,24 +276,33 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     loss_csv_file = os.path.join(model_config["log_path"], 'loss_train.csv')
     plot_loss(loss_csv_file, loss_column='loss')
 
-    predict_file = os.path.join(model_config["log_path"], PREDICTIONS_JSON)
+    predict_file = os.path.join(model_config["log_path"], constants.PREDICTIONS_JSON)
 
 
-    map_type2subtype(predict_file, predict_file, map_=subtype2type)
+    #map_type2subtype(predict_file, predict_file, map_=subtype2type)
+
     #if model_config["subtype_classification"] == NO_SUBTYPE:
     #    map_type2subtype(predict_file, predict_file, map_=subtype2type)
     #else:
     #    swap_type2subtype(predict_file, predict_file)
 
 
-    merged_file = os.path.join(destination, PREDICTIONS_JSON)
+    merged_file = os.path.join(destination, constants.PREDICTIONS_JSON)
     merge_spert_files(model_config["valid_path"], predict_file, merged_file)
+
+    z = lsakdjflaskdjf
 
 
     logging.info(f"Scoring predictions")
     logging.info(f"Gold file:                     {model_config['valid_path']}")
     logging.info(f"Prediction file, original:     {predict_file}")
     logging.info(f"Prediction file, merged_file:  {merged_file}")
+
+
+
+    # load corpus
+    del corpus
+    corpus = joblib.load(source_file)
 
     gold_docs = corpus.docs(include=valid_subset, as_dict=True)
 

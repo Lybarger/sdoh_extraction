@@ -34,7 +34,7 @@ def dict_to_config_file(params, path):
 
     return x
 
-def create_event_types_path(entities, subtypes, relations, sent_labels, path):
+def create_event_types_path(entities, subtypes, relations, path, sent_labels=None):
 
     '''
     {"entities":
@@ -63,7 +63,8 @@ def create_event_types_path(entities, subtypes, relations, sent_labels, path):
     for x in relations:
         d["relations"][x] = {"short": x, "verbose": x,  "symmetric": False}
 
-    d["sent_labels"] = sent_labels
+    if sent_labels is not None:
+        d["sent_labels"] = sent_labels
 
     json.dump(d, open(path, 'w'), indent=4)
 
