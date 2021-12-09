@@ -240,12 +240,14 @@ class DocumentBrat(Document):
 
         return events
 
-    def events2spert(self, event_types=None, entity_types=None, skip_duplicate_spans=True):
+    def events2spert(self, event_types=None, entity_types=None,
+                    skip_duplicate_spans=True, include_doc_text=False):
 
         spert_doc, entity_counter, relation_counter = doc2spert(self, \
                             event_types = event_types,
                             entity_types = entity_types,
-                            skip_duplicate_spans = skip_duplicate_spans)
+                            skip_duplicate_spans = skip_duplicate_spans,
+                            include_doc_text = include_doc_text)
 
         return (spert_doc, entity_counter, relation_counter)
 

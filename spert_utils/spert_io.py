@@ -31,14 +31,14 @@ HEAD = "head"
 TAIL = "tail"
 SENT_INDEX = "sent_index"
 SENT_LABELS = "sent_labels"
-
+DOC_TEXT = "doc_text"
 
 
 RELATION_DEFAULT = 'relation'
 CHAR_COUNT = 12
 
 
-FIELDS = [ID, OFFSETS]
+FIELDS = [ID, DOC_TEXT, SENT_INDEX, OFFSETS]
 
 def create_entity(type_, start, end):
     return {TYPE:type_, START: start, END: end}
@@ -50,7 +50,7 @@ def create_relation(head, tail, relation=RELATION_DEFAULT):
 
 
 def doc2spert(doc, event_types=None, entity_types=None, \
-            skip_duplicate_spans=True):
+            skip_duplicate_spans=True, include_doc_text=False):
 
 
     sent_count = len(doc.tokens)
@@ -143,6 +143,12 @@ def doc2spert(doc, event_types=None, entity_types=None, \
     for i, (T, O, E, S, R) in enumerate(zip(doc.tokens, doc.token_offsets, entities, subtypes, relations)):
         sent = {}
         sent[ID] = doc.id
+
+        if include_doc_text and (i == 0):
+            sent[DOC_TEXT] = doc.text
+        else:
+            sent[DOC_TEXT] = None
+
         sent[SENT_INDEX] = i
 
         assert len(T) == len(O)
@@ -395,14 +401,15 @@ def merge_spert_encodings(original, predict, fields=FIELDS):
         d = {}
         d.update(preds)
         for field in fields:
-            d[field] = orig[field]
+            if field in orig:
+                d[field] = orig[field]
 
         merged.append(d)
 
     return merged
 
 
-def merge_spert_files(original_file, predict_file, merged_file, fields=[ID, OFFSETS]):
+def merge_spert_files(original_file, predict_file, merged_file, fields=FIELDS):
     """
     Load and merge original and predicted spert IO
     """

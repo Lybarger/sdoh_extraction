@@ -192,7 +192,8 @@ class CorpusBrat(Corpus):
 
 
     def events2spert(self, include=None, exclude=None, event_types=None, entity_types=None, \
-            skip_duplicate_spans=True, flat=True, path=None, sample_count=None):
+            skip_duplicate_spans=True, include_doc_text=False,
+            flat=True, path=None, sample_count=None):
         """
         Get events by document
         """
@@ -206,7 +207,8 @@ class CorpusBrat(Corpus):
             y_, ec, rc = doc.events2spert( \
                                 event_types = event_types,
                                 entity_types = entity_types,
-                                skip_duplicate_spans = skip_duplicate_spans)
+                                skip_duplicate_spans = skip_duplicate_spans,
+                                include_doc_text = include_doc_text)
             entity_counter += ec
             relation_counter += rc
             if flat:

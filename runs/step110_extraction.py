@@ -129,7 +129,7 @@ def cfg():
     eval_batch_size = 2
     neg_entity_count = 100
     neg_relation_count = 100
-    epochs = 3 if fast_run else 20
+    epochs = 2 if fast_run else 20
     lr = 5e-5
     lr_warmup = 0.1
     weight_decay = 0.01
@@ -237,7 +237,8 @@ def main(source_file, destination, config_file, model_config, spert_path, \
                     event_types = event_types,
                     entity_types = entity_types,
                     path = path,
-                    sample_count = fast_count)
+                    sample_count = fast_count,
+                    include_doc_text = True)
 
         get_dataset_stats(dataset_path=path, dest_path=destination, name=subset)
 
@@ -290,31 +291,30 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     merged_file = os.path.join(destination, constants.PREDICTIONS_JSON)
     merge_spert_files(model_config["valid_path"], predict_file, merged_file)
 
-    z = lsakdjflaskdjf
-
-
-    logging.info(f"Scoring predictions")
-    logging.info(f"Gold file:                     {model_config['valid_path']}")
-    logging.info(f"Prediction file, original:     {predict_file}")
-    logging.info(f"Prediction file, merged_file:  {merged_file}")
-
-
-
-    # load corpus
-    del corpus
-    corpus = joblib.load(source_file)
-
-    gold_docs = corpus.docs(include=valid_subset, as_dict=True)
-
-    predict_corpus = spert2corpus(merged_file)
-    predict_docs = predict_corpus.docs(as_dict=True)
-
-    gold_docs = OrderedDict([(k, v) for k, v in gold_docs.items() if k in predict_docs])
-
-    score_spert_docs(valid_path, merged_file, destination)
-
-    score_docs(gold_docs, predict_docs, \
-                            scoring = [EXACT, OVERLAP, PARTIAL, LABEL],
-                            destination = destination)
+    # z = sldkjf
+    #
+    # logging.info(f"Scoring predictions")
+    # logging.info(f"Gold file:                     {model_config['valid_path']}")
+    # logging.info(f"Prediction file, original:     {predict_file}")
+    # logging.info(f"Prediction file, merged_file:  {merged_file}")
+    #
+    #
+    #
+    # # load corpus
+    # del corpus
+    # corpus = joblib.load(source_file)
+    #
+    # gold_docs = corpus.docs(include=valid_subset, as_dict=True)
+    #
+    # predict_corpus = spert2corpus(merged_file)
+    # predict_docs = predict_corpus.docs(as_dict=True)
+    #
+    # gold_docs = OrderedDict([(k, v) for k, v in gold_docs.items() if k in predict_docs])
+    #
+    # score_spert_docs(valid_path, merged_file, destination)
+    #
+    # score_docs(gold_docs, predict_docs, \
+    #                         scoring = [EXACT, OVERLAP, PARTIAL, LABEL],
+    #                         destination = destination)
 
     return 'Successful completion'
