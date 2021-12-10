@@ -16,7 +16,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from corpus.labels import Event, Entity
 from corpus.corpus_predict import CorpusPredict
 from corpus.document_predict import DocumentPredict
+
 from config.constants import SUBTYPE_DEFAULT
+
+from corpus.tokenization import get_tokenizer
+
+
 
 ID = "id"
 TOKENS = "tokens"
@@ -382,6 +387,63 @@ def spert2corpus(input_file):
         corpus.add_doc(doc)
 
     return corpus
+
+def spert2brat_dicts(spert_doc):
+
+    print(spert_doc)
+
+
+
+
+    for i, sent in enumerate(spert_doc):
+
+
+        # initialize current document
+        if i == 0:
+
+            assert sent[DOC_TEXT] is not None
+            assert len(sent[DOC_TEXT]) > 0
+
+            text = sent[DOC_TEXT]
+
+        # get
+        id = sent[ID]
+        sent_index = sent[SENT_INDEX]
+        assert sent_index == i
+
+
+    print(text)
+    z = sldkfj
+
+
+def spert2doc_dict(input_file):
+
+
+    tokenizer = get_tokenizer()
+
+    # load spert output
+    spert_corpus = json.load(open(input_file, "r"))
+
+    # aggregate sentences by document
+    # iterate over sentences in corpus
+    by_doc = OrderedDict()
+    for sent in spert_corpus:
+
+        # get
+        id = sent[ID]
+
+        # initialize current document
+        if id not in by_doc:
+            assert sent[SENT_INDEX] == 0
+            assert sent[DOC_TEXT] is not None
+            assert len(sent[DOC_TEXT]) > 0
+
+            by_doc[id] = []
+
+        by_doc[id].append(sent)
+
+
+    return by_doc
 
 
 def merge_spert_encodings(original, predict, fields=FIELDS):
