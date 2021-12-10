@@ -37,6 +37,7 @@ TAIL = "tail"
 SENT_INDEX = "sent_index"
 SENT_LABELS = "sent_labels"
 DOC_TEXT = "doc_text"
+VALUE = "value"
 
 
 RELATION_DEFAULT = 'relation'
@@ -388,33 +389,157 @@ def spert2corpus(input_file):
 
     return corpus
 
-def spert2brat_dicts(spert_doc):
+def get_tb_from_id(id)
+    return f'T{id}'
 
-    print(spert_doc)
-
-
-
-
-    for i, sent in enumerate(spert_doc):
+def get_span2tb(spert_entities, tb_id):
 
 
-        # initialize current document
-        if i == 0:
 
-            assert sent[DOC_TEXT] is not None
-            assert len(sent[DOC_TEXT]) > 0
+    span2tb = OrderedDict()
+    entity2tb = OrderedDict()
+    for i, entity in enumerate(spert_entities):
 
-            text = sent[DOC_TEXT]
+        span = (entity[START], entity[END])
 
-        # get
-        id = sent[ID]
-        sent_index = sent[SENT_INDEX]
-        assert sent_index == i
+        tb_id += 1
+
+        tb = get_tb_from_id(tb_id)
+
+        assert span not in span2tb
+        span2tb[span] = tb
+
+        assert i not in entity2tb
+        entity2tb[i] = tb
+
+    return (span2tb, entity2tb, tb_id)
 
 
-    print(text)
-    z = sldkfj
+def get_entity_dict(spert_entities, span2tb, require_span_match=True):
 
+
+    entity_dict = {}
+    for entity in spert_entities:
+        span = (entity[START], entity[END])
+
+        if span in span2tb:
+            tb = span2tb[span]
+            entity_dict[tb] = entity
+        elif require_span_match:
+            raise ValueError(f"tb {span} not in span2tb {span2tb.keys()}")
+        else:
+            pass
+
+    return entity_dict
+
+
+def get_relation_dict(spert_relations, entity2tb, require_span_match=True):
+
+    relation_dict = {}
+    for relation in spert_relations:
+
+        head_idx = relation[HEAD]
+        tail_idx = relation[TAIL]
+
+        head_tb = entity2tb[head_idx]
+        tail_tb = entity2tb[tail_idx]
+
+        relation_dict[(head_tb, tail_tb)] = relation
+    return relation_dict
+
+
+def spert_sent2brat_dicts(spert_sent, argument_pairs, tb_id):
+
+    id = spert_sent[ID]
+    tokens = spert_sent[TOKENS]
+    offsets = spert_sent[OFFSETS]
+    entities = spert_sent[ENTITIES]
+    subtypes = spert_sent[SUBTYPES]
+    relations = spert_sent[RELATIONS]
+
+
+    #print("ENTITIES",entities)
+    #print("SUBTYPES",subtypes)
+    #print("RELATIONS",relations)
+    #print("OFFSETS",offsets)
+
+    span2tb, entity2tb, tb_id = get_span2tb(entities, tb_id)
+
+    #print(span2tb)
+    entity_dict = get_entity_dict(entities, span2tb, require_span_match=True)
+    subtype_dict = get_entity_dict(subtypes, span2tb, require_span_match=False)
+    relation_dict = get_relation_dict(relations, entity2tb, require_span_match=True)
+    #print(entity_dict)
+    #print(subtype_dict)
+    print(relation_dict)
+
+    for tb, subtype in subtype_dict.items():
+        entity = entity_dict[tb]
+        entity_type = entity[TYPE]
+
+
+        new_entity = { \
+                        TYPE: argument_pairs[entity_type],
+                        START: subtype[START],
+                        END:   subtype[END],
+                        VALUE: subtype[TYPE]}
+
+        tb_id += 1
+
+        tb_new = get_tb_from_id(tb_id)
+
+        assert tb_new not in entity_dict
+        entity_dict[tb_new] = new_entity
+
+        relation_dict[(tb, tb_new)] = {TYPE: RELATION_DEFAULT}
+
+    print(relation_dict)
+
+
+
+
+
+def spert_doc2brat_dicts(spert_doc, argument_pairs):
+
+    #print(spert_doc)
+
+    # make sure not empty
+    assert len(spert_doc) > 0
+
+    # get text
+    text = spert_doc[0][DOC_TEXT]
+    assert text is not None
+    assert len(text) > 0
+
+
+    event_dict = {}
+    relation_dict = None
+    tb_dict = {}
+    attr_dict = {}
+    #print(argument_pairs)
+
+    tb_id = 0
+
+
+    for i, spert_sent in enumerate(spert_doc):
+        assert spert_sent[SENT_INDEX] == i
+        print('-'*80)
+        print(i)
+        spert_sent2brat_dicts(spert_sent, argument_pairs, tb_id)
+
+
+
+
+    #
+    # SUBTYPES = "subtypes"
+    # TYPE = "type"
+    # START = "start"
+    # END = "end"
+    # HEAD = "head"
+    # TAIL = "tail"
+
+
+    return (event_dict, relation_dict, tb_dict, attr_dict)
 
 def spert2doc_dict(input_file):
 

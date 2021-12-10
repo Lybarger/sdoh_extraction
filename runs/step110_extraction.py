@@ -41,7 +41,7 @@ from scoring.scoring import score_docs
 from spert_utils.spert_io import swap_type2subtype, map_type2subtype, plot_loss
 from spert_utils.spert_scoring import score_spert_docs
 
-import config.constants as constants
+import config.constants as C
 
 
 
@@ -61,11 +61,11 @@ def cfg():
     Paths
     """
     source = "sdoh"
-    source_file = os.path.join(paths.brat_import, source, constants.CORPUS_FILE)
+    source_file = os.path.join(paths.brat_import, source, C.CORPUS_FILE)
 
     output_dir = paths.extraction
 
-    mode = constants.TRAIN
+    mode = C.TRAIN
     subdir = None
 
     if subdir is None:
@@ -80,8 +80,8 @@ def cfg():
 
     config_file = os.path.join(destination, "config.conf")
 
-    train_subset = constants.TRAIN
-    valid_subset = constants.DEV
+    train_subset = C.TRAIN
+    valid_subset = C.DEV
 
     train_path = os.path.join(destination, 'data_train.json')
     valid_path = os.path.join(destination, 'data_valid.json')
@@ -94,23 +94,23 @@ def cfg():
     mapping["tb_map"] = None
     mapping["attr_map"] = None
 
-    transfer_argument_pairs = [ \
-            (constants.STATUS_TIME, constants.ALCOHOL),
-            (constants.STATUS_TIME, constants.DRUG),
-            (constants.STATUS_TIME, constants.TOBACCO),
-            (constants.TYPE_LIVING, constants.LIVING_STATUS),
-            (constants.STATUS_EMPLOY, constants.EMPLOYMENT)
-            ]
+    transfer_argument_pairs = { \
+            C.STATUS_TIME: C.ALCOHOL,
+            C.STATUS_TIME: C.DRUG,
+            C.STATUS_TIME: C.TOBACCO,
+            C.TYPE_LIVING: C.LIVING_STATUS,
+            C.STATUS_EMPLOY: C.EMPLOYMENT
+            }
 
     # predict ANATOMY sub types with entity classifier
     types_config = {}
     types_config["relations"] = [RELATION_DEFAULT]
-    types_config["entities"] = constants.EVENT_TYPES + constants.SPAN_ONLY_ARGUMENTS
-    types_config["subtypes"] = constants.SUBTYPES + [constants.SUBTYPE_DEFAULT]
+    types_config["entities"] = C.EVENT_TYPES + C.SPAN_ONLY_ARGUMENTS
+    types_config["subtypes"] = C.SUBTYPES + [C.SUBTYPE_DEFAULT]
 
 
-    entity_types = constants.EVENT_TYPES + constants.SPAN_ONLY_ARGUMENTS
-    event_types = constants.EVENT_TYPES
+    entity_types = C.EVENT_TYPES + C.SPAN_ONLY_ARGUMENTS
+    event_types = C.EVENT_TYPES
 
     spert_path = '/home/lybarger/spert_plus/'
 
@@ -146,7 +146,7 @@ def cfg():
     log_path = f'{destination}/log/'
     save_path = f'{destination}/save/'
 
-    subtype_classification = constants.CONCAT_LOGITS
+    subtype_classification = C.CONCAT_LOGITS
     projection_size = 100
     projection_dropout = 0.0
     include_sent_task = False
@@ -277,7 +277,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     loss_csv_file = os.path.join(model_config["log_path"], 'loss_train.csv')
     plot_loss(loss_csv_file, loss_column='loss')
 
-    predict_file = os.path.join(model_config["log_path"], constants.PREDICTIONS_JSON)
+    predict_file = os.path.join(model_config["log_path"], C.PREDICTIONS_JSON)
 
 
     #map_type2subtype(predict_file, predict_file, map_=subtype2type)
@@ -288,7 +288,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     #    swap_type2subtype(predict_file, predict_file)
 
 
-    merged_file = os.path.join(destination, constants.PREDICTIONS_JSON)
+    merged_file = os.path.join(destination, C.PREDICTIONS_JSON)
     merge_spert_files(model_config["valid_path"], predict_file, merged_file)
 
     # z = sldkjf

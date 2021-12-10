@@ -570,14 +570,11 @@ class DocumentBrat(Document):
 
     def transfer_subtype_value(self, argument_pairs):
 
-        assert isinstance(argument_pairs, list)
-        assert isinstance(argument_pairs[0], (list, tuple))
-
-        argument_pairs = [tuple(pair) for pair in argument_pairs]
+        assert isinstance(argument_pairs, dict)
 
         # iterate over source - target arguments type pairs
         counts = Counter()
-        for source_arg, target_arg in argument_pairs:
+        for source_arg, target_arg in argument_pairs.items():
 
             # iterate over all events in document
             for event_id, event in self.event_dict.items():

@@ -20,13 +20,20 @@ import shutil
 
 
 from corpus.corpus_brat_spert import CorpusBratSpert
+import config.constants as C
 
 
 
-prediction_file = '/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/unknown2/predictions.json'
+prediction_file = '/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/unknown2/data_valid.json'
 
-
+transfer_argument_pairs = { \
+        C.STATUS_TIME: C.ALCOHOL,
+        C.STATUS_TIME: C.DRUG,
+        C.STATUS_TIME: C.TOBACCO,
+        C.TYPE_LIVING: C.LIVING_STATUS,
+        C.STATUS_EMPLOY: C.EMPLOYMENT
+        }
 
 corpus = CorpusBratSpert()
 
-corpus.import_spert_corpus(path=prediction_file)
+corpus.import_spert_corpus(path=prediction_file, argument_pairs=transfer_argument_pairs)

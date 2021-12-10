@@ -5,7 +5,7 @@ import spacy
 
 from corpus.corpus_brat import CorpusBrat
 from corpus.document_brat_spert import DocumentBratSpert
-from spert_utils.spert_io import spert2doc_dict, spert2brat_dicts
+from spert_utils.spert_io import spert2doc_dict, spert_doc2brat_dicts
 from config.constants import SPACY_MODEL
 
 class CorpusBratSpert(CorpusBrat):
@@ -16,7 +16,7 @@ class CorpusBratSpert(CorpusBrat):
         CorpusBrat.__init__(self, document_class=document_class, spacy_model=spacy_model)
 
 
-    def import_spert_corpus(self, path):
+    def import_spert_corpus(self, path, argument_pairs):
 
 
 
@@ -25,9 +25,10 @@ class CorpusBratSpert(CorpusBrat):
 
         spert_doc_dict = spert2doc_dict(path)
 
+        argument_pairs_rev = {v:k for k, v in argument_pairs.items()}
 
         for id, spert_doc in spert_doc_dict.items():
-            event_dict, tb_dict, attr_dict = spert2brat_dicts(spert_doc)
+            event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs_rev)
 
     # # process documents
     # # iterate over documents in corpus
