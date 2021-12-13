@@ -574,7 +574,7 @@ class DocumentBrat(Document):
 
         # iterate over source - target arguments type pairs
         counts = Counter()
-        for source_arg, target_arg in argument_pairs.items():
+        for target_arg, source_arg in argument_pairs.items():
 
             # iterate over all events in document
             for event_id, event in self.event_dict.items():

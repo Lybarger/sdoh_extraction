@@ -94,13 +94,14 @@ def cfg():
     mapping["tb_map"] = None
     mapping["attr_map"] = None
 
+    # target - source pairs
     transfer_argument_pairs = { \
-            C.STATUS_TIME: C.ALCOHOL,
-            C.STATUS_TIME: C.DRUG,
-            C.STATUS_TIME: C.TOBACCO,
-            C.TYPE_LIVING: C.LIVING_STATUS,
-            C.STATUS_EMPLOY: C.EMPLOYMENT
-            }
+            C.ALCOHOL:       C.STATUS_TIME,
+            C.DRUG:          C.STATUS_TIME,
+            C.TOBACCO:       C.STATUS_TIME,
+            C.LIVING_STATUS: C.TYPE_LIVING,
+            C.EMPLOYMENT:    C.STATUS_EMPLOY}
+
 
     # predict ANATOMY sub types with entity classifier
     types_config = {}
@@ -129,7 +130,7 @@ def cfg():
     eval_batch_size = 2
     neg_entity_count = 100
     neg_relation_count = 100
-    epochs = 2 if fast_run else 20
+    epochs = 2 if fast_run else 8
     lr = 5e-5
     lr_warmup = 0.1
     weight_decay = 0.01

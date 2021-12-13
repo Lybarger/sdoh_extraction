@@ -27,12 +27,11 @@ import config.constants as C
 prediction_file = '/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/unknown2/data_valid.json'
 
 transfer_argument_pairs = { \
-        C.STATUS_TIME: C.ALCOHOL,
-        C.STATUS_TIME: C.DRUG,
-        C.STATUS_TIME: C.TOBACCO,
-        C.TYPE_LIVING: C.LIVING_STATUS,
-        C.STATUS_EMPLOY: C.EMPLOYMENT
-        }
+        C.ALCOHOL:       C.STATUS_TIME,
+        C.DRUG:          C.STATUS_TIME,
+        C.TOBACCO:       C.STATUS_TIME,
+        C.LIVING_STATUS: C.TYPE_LIVING,
+        C.EMPLOYMENT:    C.STATUS_EMPLOY}
 
 corpus = CorpusBratSpert()
 

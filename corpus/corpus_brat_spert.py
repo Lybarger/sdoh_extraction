@@ -25,10 +25,8 @@ class CorpusBratSpert(CorpusBrat):
 
         spert_doc_dict = spert2doc_dict(path)
 
-        argument_pairs_rev = {v:k for k, v in argument_pairs.items()}
-
         for id, spert_doc in spert_doc_dict.items():
-            event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs_rev)
+            event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs)
 
     # # process documents
     # # iterate over documents in corpus

@@ -20,6 +20,7 @@ from corpus.document_predict import DocumentPredict
 from config.constants import SUBTYPE_DEFAULT
 
 from corpus.tokenization import get_tokenizer
+from corpus.brat import Attribute, Textbound, Event, get_unique_arg
 
 
 
@@ -389,10 +390,20 @@ def spert2corpus(input_file):
 
     return corpus
 
-def get_tb_from_id(id)
-    return f'T{id}'
+def get_next_id(d, k):
+    d[k] += 1
+    return f'{k}{d[k]}'
 
-def get_span2tb(spert_entities, tb_id):
+def get_next_tb(d, k='T'):
+    return get_next_id(d, k)
+
+def get_next_event(d, k='E'):
+    return get_next_id(d, k)
+
+def get_next_attr(d, k='A'):
+    return get_next_id(d, k)
+
+def get_span2tb(spert_entities, ids):
 
 
 
@@ -402,9 +413,7 @@ def get_span2tb(spert_entities, tb_id):
 
         span = (entity[START], entity[END])
 
-        tb_id += 1
-
-        tb = get_tb_from_id(tb_id)
+        tb = get_next_tb(ids)
 
         assert span not in span2tb
         span2tb[span] = tb
@@ -412,17 +421,20 @@ def get_span2tb(spert_entities, tb_id):
         assert i not in entity2tb
         entity2tb[i] = tb
 
-    return (span2tb, entity2tb, tb_id)
+    return (span2tb, entity2tb)
 
 
-def get_entity_dict(spert_entities, span2tb, require_span_match=True):
+def get_entity_dict(spert_entities, span2tb, require_span_match=True, ignore=None):
 
 
     entity_dict = {}
     for entity in spert_entities:
+        type_ = entity[TYPE]
         span = (entity[START], entity[END])
 
-        if span in span2tb:
+        if (ignore is not None) and (type_ in ignore):
+            pass
+        elif span in span2tb:
             tb = span2tb[span]
             entity_dict[tb] = entity
         elif require_span_match:
@@ -448,7 +460,127 @@ def get_relation_dict(spert_relations, entity2tb, require_span_match=True):
     return relation_dict
 
 
-def spert_sent2brat_dicts(spert_sent, argument_pairs, tb_id):
+def get_tb_dict(entity_dict, offsets, text):
+
+    # iterate over entities in entity_dict
+    tb_dict = {}
+    for tb_id, entity in entity_dict.items():
+        type_ = entity[TYPE]
+
+        # get token indices
+        token_start = entity[START]
+        token_end = entity[END]
+
+        # get character indices from token indices
+        char_offsets = offsets[token_start:token_end]
+        char_start = char_offsets[0][0]
+        char_end = char_offsets[-1][1]
+
+        text_span = text[char_start:char_end]
+
+        tb = Textbound(
+            id = tb_id,
+            type_ = type_,
+            start = char_start,
+            end = char_end,
+            text = text_span,
+        )
+        tb_dict[tb_id] = tb
+    return tb_dict
+
+def get_event_dict(relation_dict, entity_dict, ids):
+
+
+    # collect arguments by trigger
+    args_by_trigger = {}
+    for (trig_id, arg_id) in relation_dict:
+        if trig_id not in args_by_trigger:
+            args_by_trigger[trig_id] = []
+        args_by_trigger[trig_id].append(arg_id)
+
+    # iterate over trigger text bounds
+    event_dict = {}
+    for trig_id, arg_ids in args_by_trigger.items():
+
+        # build the arguments with trigger
+        arguments = OrderedDict()
+
+        # get trigger information
+        trigger = entity_dict[trig_id]
+        trigger_type = trigger[TYPE]
+        arguments[trigger_type] = trig_id
+
+        # iterate over argument ids
+        for arg_id in arg_ids:
+
+            # get argument information
+            argument = entity_dict[arg_id]
+            argument_type = argument[TYPE]
+
+            # add arguments to event, checking for argument type uniqueness
+            argument_type = get_unique_arg(argument_type, arguments)
+            assert argument_type not in arguments
+            arguments[argument_type] = arg_id
+
+        # create a event
+        event = Event( \
+                    id = get_next_event(ids),
+                    type_ = trigger_type,
+                    arguments = arguments)
+
+        # bundle events
+        assert event.id not in event_dict
+        event_dict[event.id] = event
+
+    return event_dict
+
+
+def merge_subtype_with_entity(subtype_dict, entity_dict, relation_dict, argument_pairs, ids):
+
+    for tb, subtype in subtype_dict.items():
+
+        # get associated entity and entity type
+        entity = entity_dict[tb]
+        entity_type = entity[TYPE]
+
+        # get new entity type from mapping
+        assert entity_type in argument_pairs, \
+            f'entity_type "{entity_type}" not in argument_pairs "{argument_pairs.keys()}"'
+        new_entity_type = argument_pairs[entity_type]
+
+        # create new entity (similar to SpERT entity, but VALUE added)
+        new_entity = { \
+                        TYPE: new_entity_type,
+                        START: subtype[START],
+                        END:   subtype[END],
+                        VALUE: subtype[TYPE]}
+
+        tb_new = get_next_tb(ids)
+
+        assert tb_new not in entity_dict
+        entity_dict[tb_new] = new_entity
+
+        relation_dict[(tb, tb_new)] = {TYPE: RELATION_DEFAULT}
+
+    return (subtype_dict, entity_dict, relation_dict)
+
+def get_attr_dict(entity_dict, ids):
+
+    print(entity_dict)
+    attr_dict = {}
+    for tb_id, entity in entity_dict.items():
+        if VALUE in entity:
+            attr = Attribute( \
+                    id = get_next_attr(ids),
+                    type_ = entity[TYPE],
+                    textbound = tb_id,
+                    value = entity[VALUE])
+            print(attr)
+            attr_dict[tb_id] = attr
+
+    return attr_dict
+
+def spert_sent2brat_dicts(spert_sent, argument_pairs, text, ids):
 
     id = spert_sent[ID]
     tokens = spert_sent[TOKENS]
@@ -458,42 +590,28 @@ def spert_sent2brat_dicts(spert_sent, argument_pairs, tb_id):
     relations = spert_sent[RELATIONS]
 
 
-    #print("ENTITIES",entities)
-    #print("SUBTYPES",subtypes)
-    #print("RELATIONS",relations)
-    #print("OFFSETS",offsets)
-
-    span2tb, entity2tb, tb_id = get_span2tb(entities, tb_id)
+    span2tb, entity2tb = get_span2tb(entities, ids)
 
     #print(span2tb)
-    entity_dict = get_entity_dict(entities, span2tb, require_span_match=True)
-    subtype_dict = get_entity_dict(subtypes, span2tb, require_span_match=False)
+    entity_dict = get_entity_dict(entities, span2tb, require_span_match=True, ignore=None)
+    subtype_dict = get_entity_dict(subtypes, span2tb, require_span_match=False, ignore=[SUBTYPE_DEFAULT])
     relation_dict = get_relation_dict(relations, entity2tb, require_span_match=True)
-    #print(entity_dict)
-    #print(subtype_dict)
-    print(relation_dict)
-
-    for tb, subtype in subtype_dict.items():
-        entity = entity_dict[tb]
-        entity_type = entity[TYPE]
 
 
-        new_entity = { \
-                        TYPE: argument_pairs[entity_type],
-                        START: subtype[START],
-                        END:   subtype[END],
-                        VALUE: subtype[TYPE]}
 
-        tb_id += 1
+    # iterate over spans labele with subtype
 
-        tb_new = get_tb_from_id(tb_id)
+    subtype_dict, entity_dict, relation_dict = merge_subtype_with_entity( \
+                    subtype_dict, entity_dict, relation_dict, argument_pairs, ids)
 
-        assert tb_new not in entity_dict
-        entity_dict[tb_new] = new_entity
 
-        relation_dict[(tb, tb_new)] = {TYPE: RELATION_DEFAULT}
+    tb_dict = get_tb_dict(entity_dict, offsets=offsets, text=text)
+    event_dict = get_event_dict(relation_dict, entity_dict, ids)
+    attr_dict = get_attr_dict(entity_dict, ids)
 
-    print(relation_dict)
+
+    # print(tb_dict)
+    # print(event_dict)
 
 
 
@@ -518,14 +636,14 @@ def spert_doc2brat_dicts(spert_doc, argument_pairs):
     attr_dict = {}
     #print(argument_pairs)
 
-    tb_id = 0
+    ids = {'T':0, 'E':0, 'A':0}
 
 
     for i, spert_sent in enumerate(spert_doc):
         assert spert_sent[SENT_INDEX] == i
         print('-'*80)
         print(i)
-        spert_sent2brat_dicts(spert_sent, argument_pairs, tb_id)
+        spert_sent2brat_dicts(spert_sent, argument_pairs, text, ids)
 
 
 
