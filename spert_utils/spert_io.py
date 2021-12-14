@@ -537,6 +537,7 @@ def get_event_dict(relation_dict, entity_dict, ids):
 
 def merge_subtype_with_entity(subtype_dict, entity_dict, relation_dict, argument_pairs, ids):
 
+
     for tb, subtype in subtype_dict.items():
 
         # get associated entity and entity type
@@ -544,29 +545,30 @@ def merge_subtype_with_entity(subtype_dict, entity_dict, relation_dict, argument
         entity_type = entity[TYPE]
 
         # get new entity type from mapping
-        assert entity_type in argument_pairs, \
-            f'entity_type "{entity_type}" not in argument_pairs "{argument_pairs.keys()}"'
-        new_entity_type = argument_pairs[entity_type]
+        if entity_type in argument_pairs:
+            new_entity_type = argument_pairs[entity_type]
 
-        # create new entity (similar to SpERT entity, but VALUE added)
-        new_entity = { \
-                        TYPE: new_entity_type,
-                        START: subtype[START],
-                        END:   subtype[END],
-                        VALUE: subtype[TYPE]}
+            # create new entity (similar to SpERT entity, but VALUE added)
+            new_entity = { \
+                            TYPE: new_entity_type,
+                            START: subtype[START],
+                            END:   subtype[END],
+                            VALUE: subtype[TYPE]}
 
-        tb_new = get_next_tb(ids)
+            tb_new = get_next_tb(ids)
 
-        assert tb_new not in entity_dict
-        entity_dict[tb_new] = new_entity
+            assert tb_new not in entity_dict
+            entity_dict[tb_new] = new_entity
 
-        relation_dict[(tb, tb_new)] = {TYPE: RELATION_DEFAULT}
+            relation_dict[(tb, tb_new)] = {TYPE: RELATION_DEFAULT}
+        else:
+            logging.warn(f'entity_type "{entity_type}" not in argument_pairs "{argument_pairs.keys()}". Skipping')
 
     return (subtype_dict, entity_dict, relation_dict)
 
 def get_attr_dict(entity_dict, ids):
 
-    print(entity_dict)
+
     attr_dict = {}
     for tb_id, entity in entity_dict.items():
         if VALUE in entity:
@@ -575,7 +577,6 @@ def get_attr_dict(entity_dict, ids):
                     type_ = entity[TYPE],
                     textbound = tb_id,
                     value = entity[VALUE])
-            print(attr)
             attr_dict[tb_id] = attr
 
     return attr_dict
@@ -605,21 +606,16 @@ def spert_sent2brat_dicts(spert_sent, argument_pairs, text, ids):
                     subtype_dict, entity_dict, relation_dict, argument_pairs, ids)
 
 
-    tb_dict = get_tb_dict(entity_dict, offsets=offsets, text=text)
     event_dict = get_event_dict(relation_dict, entity_dict, ids)
+    tb_dict = get_tb_dict(entity_dict, offsets=offsets, text=text)
     attr_dict = get_attr_dict(entity_dict, ids)
 
-
-    # print(tb_dict)
-    # print(event_dict)
-
-
+    return event_dict, tb_dict, attr_dict
 
 
 
 def spert_doc2brat_dicts(spert_doc, argument_pairs):
 
-    #print(spert_doc)
 
     # make sure not empty
     assert len(spert_doc) > 0
@@ -631,33 +627,34 @@ def spert_doc2brat_dicts(spert_doc, argument_pairs):
 
 
     event_dict = {}
-    relation_dict = None
+    relation_dict = {}
     tb_dict = {}
     attr_dict = {}
-    #print(argument_pairs)
 
     ids = {'T':0, 'E':0, 'A':0}
 
 
     for i, spert_sent in enumerate(spert_doc):
         assert spert_sent[SENT_INDEX] == i
-        print('-'*80)
-        print(i)
-        spert_sent2brat_dicts(spert_sent, argument_pairs, text, ids)
+        event_dict_sent, tb_dict_sent, attr_dict_sent = \
+                    spert_sent2brat_dicts(spert_sent, argument_pairs, text, ids)
+
+        for event_id, event in event_dict_sent.items():
+            assert event_id not in event_dict
+            for arg_type, tb_id in event.arguments.items():
+                assert tb_id not in tb_dict
+            event_dict[event_id] = event
+
+        for k, v in tb_dict_sent.items():
+            assert k not in tb_dict
+            tb_dict[k] = v
+
+        for k, v in attr_dict_sent.items():
+            assert k not in attr_dict
+            attr_dict[k] = v
 
 
-
-
-    #
-    # SUBTYPES = "subtypes"
-    # TYPE = "type"
-    # START = "start"
-    # END = "end"
-    # HEAD = "head"
-    # TAIL = "tail"
-
-
-    return (event_dict, relation_dict, tb_dict, attr_dict)
+    return (text, event_dict, relation_dict, tb_dict, attr_dict)
 
 def spert2doc_dict(input_file):
 

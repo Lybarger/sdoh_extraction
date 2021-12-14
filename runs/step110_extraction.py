@@ -29,14 +29,14 @@ from utils.proj_setup import make_and_clear
 
 import config.paths as paths
 from corpus.tokenization import get_tokenizer, get_context
-
+from corpus.corpus_brat import CorpusBrat
 from layers.transformer_misc import get_length_percentiles
 from spert_utils.config_setup import dict_to_config_file, get_prediction_file
 from spert_utils.spert_io import merge_spert_files, spert2corpus
 
 from spert_utils.config_setup import create_event_types_path, get_dataset_stats
 from spert_utils.convert_brat import RELATION_DEFAULT
-from scoring.scoring import score_docs
+from scoring.scoring import score_brat_events
 
 from spert_utils.spert_io import swap_type2subtype, map_type2subtype, plot_loss
 from spert_utils.spert_scoring import score_spert_docs
@@ -71,7 +71,7 @@ def cfg():
     if subdir is None:
         subdir = mode
 
-    fast_run = True
+    fast_run = False
     fast_count = 200 if fast_run else None
 
     destination = os.path.join(output_dir, subdir, description)
@@ -219,7 +219,11 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     corpus = joblib.load(source_file)
 
     # apply corpus mapping
-    corpus.map_(**mapping, path=destination)
+    #corpus.map_(**mapping, path=destination)
+    brat_true = os.path.join(destination, "brat_true")
+    corpus.write_brat(path=brat_true, include=valid_subset)
+
+
 
     corpus.transfer_subtype_value(transfer_argument_pairs, path=destination)
 
@@ -279,18 +283,14 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     plot_loss(loss_csv_file, loss_column='loss')
 
     predict_file = os.path.join(model_config["log_path"], C.PREDICTIONS_JSON)
-
-
-    #map_type2subtype(predict_file, predict_file, map_=subtype2type)
-
-    #if model_config["subtype_classification"] == NO_SUBTYPE:
-    #    map_type2subtype(predict_file, predict_file, map_=subtype2type)
-    #else:
-    #    swap_type2subtype(predict_file, predict_file)
-
-
     merged_file = os.path.join(destination, C.PREDICTIONS_JSON)
     merge_spert_files(model_config["valid_path"], predict_file, merged_file)
+
+
+    corpus_predict = CorpusBrat()
+    corpus_predict.import_spert_corpus(path=merged_file, argument_pairs=transfer_argument_pairs)
+    brat_predict = os.path.join(destination, "brat_predict")
+    corpus_predict.write_brat(path=brat_predict)
 
     # z = sldkjf
     #
@@ -302,7 +302,6 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     #
     #
     # # load corpus
-    # del corpus
     # corpus = joblib.load(source_file)
     #
     # gold_docs = corpus.docs(include=valid_subset, as_dict=True)

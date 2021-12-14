@@ -1,5 +1,4 @@
 
-
 import json
 import pandas as pd
 import os
@@ -7,20 +6,27 @@ import numpy as np
 from collections import Counter, OrderedDict
 
 
-
-
-from config.constants import TYPE, SUBTYPE, START, END, TOKENS, ENTITIES, RELATIONS, TRIGGER, ENTITY, TRIGGER_SUBTYPE, ENTITY_SUBTYPE
-from config.constants import NT, NP, TP, METRIC, COUNT, FP, FN
-from config.constants import EXACT, PARTIAL, OVERLAP, LABEL
-
+import config.constants as C
 from corpus.corpus_brat import CorpusBrat
 from corpus.labels import Entity
 
+SCORE_TRIG = C.EXACT
+SCORE_SPAN = C.EXACT
+SCORE_LABELED = C.LABEL
+
+
+def get_token_count(tokens, length_max=None):
+
+    token_count = len(tokens)
+
+    if length_max is not None:
+        token_count = min(token_count, length_max)
+    return token_count
 
 def PRF(df):
 
-    df["P"] = df[TP]/(df[NP].astype(float))
-    df["R"] = df[TP]/(df[NT].astype(float))
+    df["P"] = df[C.TP]/(df[C.NP].astype(float))
+    df["R"] = df[C.TP]/(df[C.NT].astype(float))
     df["F1"] = 2*df["P"]*df["R"]/(df["P"] + df["R"])
 
     return df
@@ -44,7 +50,7 @@ def augment_dict_keys(d, x):
 
     return d
 
-def get_entity_counts(entities, entity_scoring=EXACT, include_subtype=False,
+def get_entity_counts(entities, entity_scoring=C.EXACT, include_subtype=False,
                                                 return_counts_by_entity=False):
     """
     Get histogram of entity labels
@@ -72,11 +78,11 @@ def get_entity_counts(entities, entity_scoring=EXACT, include_subtype=False,
         v = None
 
         # count spans
-        if entity_scoring in [EXACT, OVERLAP, LABEL]:
+        if entity_scoring in [C.EXACT, C.OVERLAP, C.LABEL]:
             v = 1
 
         # count tokens
-        elif entity_scoring in [PARTIAL]:
+        elif entity_scoring in [C.PARTIAL]:
             v = entity.token_end - entity.token_start
 
         else:
@@ -88,7 +94,7 @@ def get_entity_counts(entities, entity_scoring=EXACT, include_subtype=False,
         counts_by_entity.append(v)
 
 
-    if entity_scoring in [EXACT, OVERLAP, LABEL]:
+    if entity_scoring in [C.EXACT, C.OVERLAP, C.LABEL]:
         assert sum(counter.values()) == len(entities)
         assert sum(counts_by_entity) == len(entities)
 
@@ -97,16 +103,17 @@ def get_entity_counts(entities, entity_scoring=EXACT, include_subtype=False,
     else:
         return counter
 
-def get_event_counts(events, \
-                        trigger_scoring = EXACT,
-                        argument_scoring = EXACT,
-                        include_subtype = False):
+def get_event_counts(events, labeled_args, \
+                        score_trig = SCORE_TRIG,
+                        score_span = SCORE_SPAN,
+                        score_labeled = SCORE_LABELED):
     """
     Get histogram of entity labels
     """
 
-    assert trigger_scoring in [EXACT, OVERLAP]
-    assert argument_scoring in [EXACT, OVERLAP, PARTIAL, LABEL]
+    assert score_trig in    [C.EXACT, C.OVERLAP, C.MIN_DIST]
+    assert score_span in    [C.EXACT, C.OVERLAP, C.PARTIAL]
+    assert score_labeled in [C.EXACT, C.OVERLAP, C.LABEL]
 
     counter = Counter()
     for event in events:
@@ -114,26 +121,38 @@ def get_event_counts(events, \
         # Get trigger
         trigger = event.arguments[0]
 
+        event_type = trigger.type_
+
         # iterate over arguments
-        for argument in event.arguments[1:]:
+        for i, argument in enumerate(event.arguments):
+
+            arg_type = argument.type_
+            arg_subtype = argument.subtype
+
+
+            # set count to span-level (each argument counted once)
+            c = 1
+
+            # is trigger - always count spans
+            if i == 0:
+                arg_type = C.TRIGGER
+
+            # is labeled argument - always count spans
+            elif argument.type_ in labeled_args:
+                pass
+
+            # is span-only argument - can count spans or tokens
+            else:
+                if score_span == C.PARTIAL:
+                    c = argument.token_end - argument.token_start
+                else:
+                    pass
 
             # key for counter
+            k = get_event_key(event_type, arg_type, arg_subtype)
 
-            if include_subtype:
-                k = (trigger.type_, trigger.subtype, argument.type_, argument.subtype)
-            else:
-                k = (trigger.type_, argument.type_)
-
-            # count spans
-            if argument_scoring in [EXACT, OVERLAP, LABEL]:
-                counter[k] += 1
-
-            # count tokens
-            elif argument_scoring in [PARTIAL]:
-                counter[k] += argument.token_end - argument.token_start
-
-            else:
-                raise ValueError(f"invalid tail scoring: {argument_scoring}")
+            # update counter
+            counter[k] += c
 
     return counter
 
@@ -183,7 +202,7 @@ def separate_matches(X, match_indices):
     return (match, diff)
 
 
-def get_entity_diff(gold, predict, entity_scoring=EXACT, include_subtype=False):
+def get_entity_diff(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
     """
     Get histogram of matching entities
 
@@ -195,7 +214,7 @@ def get_entity_diff(gold, predict, entity_scoring=EXACT, include_subtype=False):
     include_subtype: include subtype in result, as bool
     """
 
-    assert entity_scoring in [EXACT, OVERLAP]
+    assert entity_scoring in [C.EXACT, C.OVERLAP]
 
     assert isinstance(gold, list)
     assert isinstance(predict, list)
@@ -236,9 +255,9 @@ def get_entity_diff(gold, predict, entity_scoring=EXACT, include_subtype=False):
 
     return (gold_match, gold_diff, predict_match, predict_diff)
 
-def get_event_diff(gold, predict, scoring=EXACT, include_subtype=False):
+def get_event_diff(gold, predict, scoring=C.EXACT, include_subtype=False):
 
-    assert scoring in [EXACT, OVERLAP]
+    assert scoring in [C.EXACT, C.OVERLAP]
 
     I_matches = set([])
     J_matches = set([])
@@ -289,7 +308,7 @@ def get_event_diff(gold, predict, scoring=EXACT, include_subtype=False):
 
     return (gold_match, gold_diff, predict_match, predict_diff)
 
-def compare_entities(gold, predict, entity_scoring=EXACT, include_subtype=False):
+def compare_entities(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
     """
     Get histogram of matching entities
 
@@ -301,7 +320,7 @@ def compare_entities(gold, predict, entity_scoring=EXACT, include_subtype=False)
     include_subtype: include subtype in result, as bool
     """
 
-    assert entity_scoring in [EXACT, PARTIAL, OVERLAP, LABEL]
+    assert entity_scoring in [C.EXACT, C.PARTIAL, C.OVERLAP, C.LABEL]
 
     assert isinstance(gold, Entity)
     assert isinstance(predict, Entity)
@@ -322,22 +341,22 @@ def compare_entities(gold, predict, entity_scoring=EXACT, include_subtype=False)
 
         # exact match
         # count spans
-        if (entity_scoring == EXACT) and ((g1, g2) == (p1, p2)):
+        if (entity_scoring == C.EXACT) and ((g1, g2) == (p1, p2)):
             y = 1
 
         # partial match
         # count tokens
-        elif (entity_scoring == PARTIAL) and indices_overlap:
+        elif (entity_scoring == C.PARTIAL) and indices_overlap:
             y = indices_overlap
 
         # any overlap match
         # count spans
-        elif (entity_scoring == OVERLAP) and indices_overlap:
+        elif (entity_scoring == C.OVERLAP) and indices_overlap:
             y = 1
 
         # subtype labels match
         # count spans
-        elif (entity_scoring == LABEL) and subtype_match:
+        elif (entity_scoring == C.LABEL) and subtype_match:
             y = 1
 
     return y
@@ -350,8 +369,10 @@ def compare_entities(gold, predict, entity_scoring=EXACT, include_subtype=False)
 
 
 
-def get_entity_matches(gold, predict, entity_scoring=EXACT, include_subtype=False, \
-                                    return_counts_by_entity=False):
+def get_entity_matches(gold, predict, labeled_args, \
+                                    score_span = SCORE_SPAN,
+                                    score_labeled = SCORE_LABELED,
+                                    event_type = None):
     """
     Get histogram of matching entities
 
@@ -363,22 +384,20 @@ def get_entity_matches(gold, predict, entity_scoring=EXACT, include_subtype=Fals
     include_subtype: include subtype in result, as bool
     """
 
-    assert entity_scoring in [EXACT, PARTIAL, OVERLAP, LABEL]
+    assert score_span in    [C.EXACT, C.PARTIAL, C.OVERLAP]
+    assert score_labeled in [C.EXACT, C.OVERLAP, C.LABEL]
 
     assert isinstance(gold, list)
     assert isinstance(predict, list)
 
     counter = Counter()
-    counts_by_entity = []
-    grand_total = 0
 
-
-    #print('='*80)
     # iterate over gold
     I = set([])
     J = set([])
 
     for i, g in enumerate(gold):
+
         assert isinstance(g, Entity)
 
         matching_j = []
@@ -386,113 +405,216 @@ def get_entity_matches(gold, predict, entity_scoring=EXACT, include_subtype=Fals
 
         # iterate over predicted entities
         for j, p in enumerate(predict):
+
             assert isinstance(p, Entity)
 
-            # get entity comparison value as int
-            v = compare_entities(g, p, \
-                                entity_scoring = entity_scoring,
-                                include_subtype = include_subtype)
-
-            # allow many to many span matching
-            if entity_scoring in [PARTIAL]:
-                match = (v > 0)
-
-            # only allow each span to match once
-            # entity_scoring in [EXACT, OVERLAP, LABEL]
+            # key for counter
+            if event_type is None:
+                k = (g.type_, g.subtype)
             else:
-                match = (v > 0) and (i not in I) and (j not in J)
-                #print(match, v, i, I, j, J)
 
+                k = get_event_key(event_type, g.type_, g.subtype)
+
+            # assume no matches
+            c = 0
+
+            m = (i not in I) and (j not in J)
+
+            # argument types match and are labeled argument
+            if (g.type_ == p.type_) and (g.type_ in labeled_args):
+
+                # get entity comparison value as int
+                c = compare_entities(g, p, \
+                                    entity_scoring = score_labeled,
+                                    include_subtype = True)
+
+            elif (g.type_ == p.type_):
+
+                # get entity comparison value as int
+                c = compare_entities(g, p, \
+                                    entity_scoring = score_span,
+                                    include_subtype = False)
+
+                m = m or (score_span == C.PARTIAL)
 
             # include matched values
-            if match:
-
-                #assert i not in I
-                #assert j not in J
+            if (c > 0) and m:
 
                 I.add(i)
                 J.add(j)
 
-                # key for counter
-                k = tuple([g.type_])
-                if include_subtype:
-                    k = tuple(list(k) + [g.subtype])
+                counter[k] += c
 
-                assert isinstance(k, tuple), type(k)
-                counter[k] += v
-                grand_total += v
+    return counter
 
-                matching_j.append(j)
-                total_v += v
+def get_triggers(events):
+    return [event.arguments[0] for event in events]
 
-        counts_by_entity.append((matching_j, total_v))
 
-    if entity_scoring not in [PARTIAL]:
-        assert grand_total <= len(predict)
 
-    if return_counts_by_entity:
-        return counts_by_entity
+def span_midpoint(start, end):
+    return float(start + end - 1)/2
+
+def get_event_key(event_type, arg_type, arg_subtype):
+
+    if arg_subtype is None:
+        arg_subtype = C.NA
+
+    k = (event_type, arg_type, arg_subtype)
+
+    return k
+
+def get_equivalent_triggers_spans(gold, predict, score_trig=SCORE_TRIG):
+
+    assert score_trig in [C.EXACT, C.OVERLAP]
+
+    I = set([])
+    J = set([])
+
+    # iterate over gold triggers
+    equivalent = []
+    for i, g in enumerate(gold):
+
+        assert isinstance(g, Entity)
+
+        # iterate over predicted triggers
+        for j, p in enumerate(predict):
+
+            assert isinstance(p, Entity)
+
+            # compare triggers
+            match = compare_entities(g, p, \
+                                        entity_scoring = score_trig,
+                                        include_subtype = False)
+
+            # if trigger is match and previously not found, then align
+            if match and (i not in I) and (j not in J):
+                I.add(i)
+                J.add(j)
+                equivalent.append((i, j))
+
+    return equivalent
+
+def get_equivalent_triggers_dist(gold, predict, score_trig=SCORE_TRIG):
+
+    assert score_trig in [C.MIN_DIST]
+
+    distances = []
+
+    # iterate over gold triggers
+    for i, g in enumerate(gold):
+
+        assert isinstance(g, Entity)
+
+        # get gold midpoint
+        g_midpoint = span_midpoint(g.char_start, g.char_end)
+
+        # iterate over predicted triggers
+        for j, p in enumerate(predict):
+
+            assert isinstance(p, Entity)
+
+            # get predicted midpoint
+            p_midpoint = span_midpoint(p.char_start, p.char_end)
+
+            # can only align triggers if the same type
+            if g.type_ == p.type_:
+
+                # store distance between gold and predicted
+                d = abs(g_midpoint - p_midpoint)
+                distances.append((d, i, j))
+
+    # sort distances in ascending order
+    distances.sort()
+
+    # using for loop in place of while loop to ensure termination
+    n = len(distances)
+
+    equivalent = []
+    for _ in range(n):
+
+        # pop closest match
+        dist_best, i_best, j_best = distances.pop(0)
+
+        # remove pop'ed indices from list
+        distances = [(d, i, j) for (d, i, j) in distances \
+                            if (i != i_best) and (j != j_best)]
+
+        # Double check that no triggers get matched twice
+        for i_eq, j_eq in equivalent:
+            assert i_eq != i_best
+            assert j_eq != j_best
+
+        # add matched triggers
+        equivalent.append((i_best, j_best))
+
+        if len(distances) == 0:
+            break
+
+    return equivalent
+
+def get_equivalent_triggers(gold, predict, score_trig=SCORE_TRIG):
+
+    gold_triggers = get_triggers(gold)
+    predict_triggers = get_triggers(predict)
+
+
+    if score_trig in [C.EXACT, C.OVERLAP]:
+        equivalent = get_equivalent_triggers_spans( \
+                                    gold = gold_triggers,
+                                    predict = predict_triggers,
+                                    score_trig = score_trig)
+
+
+    elif score_trig in [C.MIN_DIST]:
+        equivalent = get_equivalent_triggers_dist( \
+                                    gold = gold_triggers,
+                                    predict = predict_triggers,
+                                    score_trig = score_trig)
     else:
-        return counter
+        raise ValueError(f"invalid score_trig: {score_trig}")
 
-def get_event_matches(gold, predict, \
-                                trigger_scoring = EXACT,
-                                argument_scoring = EXACT,
-                                include_subtype = False):
+    return equivalent
 
-    assert trigger_scoring in [EXACT, OVERLAP]
-    assert argument_scoring in [EXACT, OVERLAP, PARTIAL, LABEL]
+def get_event_matches(gold, predict, labeled_args, \
+                        score_trig = SCORE_TRIG,
+                        score_span = SCORE_SPAN,
+                        score_labeled = SCORE_LABELED):
+
+    assert score_trig in    [C.EXACT, C.OVERLAP, C.MIN_DIST]
+    assert score_span in    [C.EXACT, C.OVERLAP, C.PARTIAL]
+    assert score_labeled in [C.EXACT, C.OVERLAP, C.LABEL]
+
+    equivalent_triggers = get_equivalent_triggers(gold, predict, score_trig=score_trig)
 
     I = set([])
     J = set([])
     counter = Counter()
-    for i, g in enumerate(gold):
+
+    for i, j in equivalent_triggers:
+
+        # get gold and predicted events with equivalent triggers
+        g = gold[i]
+        p = predict[j]
 
         gold_trigger =   g.arguments[0]
         gold_arguments = g.arguments[1:]
 
-
-        trigger_key = tuple([gold_trigger.type_])
-        if include_subtype:
-            trigger_key = tuple(list(trigger_key) + [gold_trigger.subtype])
+        predict_trigger =   p.arguments[0]
+        predict_arguments = p.arguments[1:]
 
 
-        for j, p in enumerate(predict):
+        k = get_event_key(gold_trigger.type_, C.TRIGGER, gold_trigger.subtype)
+        counter[k] += 1
 
-            predict_trigger =   p.arguments[0]
-            predict_arguments = p.arguments[1:]
-
-            trigger_match = compare_entities(gold_trigger, predict_trigger, \
-                                        entity_scoring = trigger_scoring,
-                                        include_subtype = include_subtype)
-
-
-            # allow many to many span matching
-            if trigger_scoring in [PARTIAL]:
-                match = trigger_match
-
-            # only allow each span to match once
-            # trigger_scoring in [EXACT, OVERLAP, LABEL]
-            else:
-                match = trigger_match and (i not in I) and (j not in J)
-
-            # include matched values
-            if match:
-
-                I.add(i)
-                J.add(j)
-
-                cntr = get_entity_matches(gold_arguments, predict_arguments, \
-                                        entity_scoring = argument_scoring,
-                                        include_subtype = include_subtype)
-
-                for entity_key, v in cntr.items():
-
-                    # key for counter
-                    assert isinstance(entity_key, tuple), type(k)
-
-                    k = tuple(list(trigger_key) + list(entity_key))
-                    counter[k] += v
+        counter += get_entity_matches( \
+                            gold = gold_arguments,
+                            predict = predict_arguments,
+                            labeled_args = labeled_args,
+                            score_span = score_span,
+                            score_labeled = score_labeled,
+                            event_type = gold_trigger.type_
+                            )
 
     return counter
 
@@ -505,21 +627,21 @@ def get_event_matches(gold, predict, \
 def get_entity_df(counts, include_subtype=False):
 
 
-    count_cols = [NT, NP, TP]
+    count_cols = [C.NT, C.NP, C.TP]
 
-    cols = [TYPE]
+    cols = [C.TYPE]
     if include_subtype:
-        cols = cols + [SUBTYPE]
+        cols = cols + [C.SUBTYPE]
 
 
     counts = [list(k) + [v] for k, v in counts.items()]
 
-    df = pd.DataFrame(counts, columns= cols + [METRIC, COUNT])
+    df = pd.DataFrame(counts, columns= cols + [C.METRIC, C.COUNT])
 
     if include_subtype:
-        df[SUBTYPE].fillna(value="none", inplace=True)
+        df[C.SUBTYPE].fillna(value="none", inplace=True)
 
-    df = pd.pivot_table(df, values=COUNT, index=cols, columns=METRIC)
+    df = pd.pivot_table(df, values=C.COUNT, index=cols, columns=C.METRIC)
 
 
     df = df.fillna(0).astype(int)
@@ -535,25 +657,19 @@ def get_entity_df(counts, include_subtype=False):
 
     return df
 
-def get_event_df(counts, include_subtype=False):
+def get_event_df(counts):
 
-    count_cols = [NT, NP, TP]
+    count_cols = [C.NT, C.NP, C.TP]
 
-    if include_subtype:
-        cols = [TRIGGER, TRIGGER_SUBTYPE, ENTITY, ENTITY_SUBTYPE]
-    else:
-        cols = [TRIGGER, ENTITY]
+
+    cols = [C.EVENT_TYPE, C.ENTITY, C.ENTITY_SUBTYPE]
 
 
     counts = [list(k) + [v] for k, v in counts.items()]
-    df = pd.DataFrame(counts, columns= cols + [METRIC, COUNT])
-
-    if include_subtype:
-        df[TRIGGER_SUBTYPE].fillna(value="none", inplace=True)
-        df[ENTITY_SUBTYPE].fillna(value="none", inplace=True)
+    df = pd.DataFrame(counts, columns= cols + [C.METRIC, C.COUNT])
 
 
-    df = pd.pivot_table(df, values=COUNT, index=cols, columns=METRIC)
+    df = pd.pivot_table(df, values=C.COUNT, index=cols, columns=C.METRIC)
     df = df.fillna(0).astype(int)
     df = df.reset_index()
     for c in count_cols:
@@ -571,7 +687,7 @@ def get_event_df(counts, include_subtype=False):
 
 
 
-def score_entities(gold, predict, entity_scoring=EXACT, include_subtype=False):
+def score_entities(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
     '''
     Evaluate predicted entities against true entities
 
@@ -605,7 +721,7 @@ def score_entities(gold, predict, entity_scoring=EXACT, include_subtype=False):
 
 
     counter = Counter()
-    for name, d in [(NT, nt), (NP, np), (TP, tp)]:
+    for name, d in [(C.NT, nt), (C.NP, np), (C.TP, tp)]:
         d = augment_dict_keys(d, name)
         counter.update(d)
 
@@ -621,7 +737,7 @@ def label_name(entity):
         return f"{entity.type_} ({entity.subtype})"
 
 
-def score_entities_detailed(gold, predict, entity_scoring=EXACT, include_subtype=False):
+def score_entities_detailed(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
     '''
     Evaluate predicted entities against true entities
 
@@ -665,11 +781,11 @@ def score_entities_detailed(gold, predict, entity_scoring=EXACT, include_subtype
             d = OrderedDict()
 
             a = g[i]
-            d[NT] = nt[i]
-            d[NP] = 0
-            d[TP] = v
-            d[FP] = -1
-            d[FN] = -1
+            d[C.NT] = nt[i]
+            d[C.NP] = 0
+            d[C.TP] = v
+            d[C.FP] = -1
+            d[C.FN] = -1
 
 
             d["label"] = label_name(a)
@@ -694,15 +810,15 @@ def score_entities_detailed(gold, predict, entity_scoring=EXACT, include_subtype
                 d[f"predict_{k}_text"] = a.text
                 d[f"predict_{k}_start"] = a.char_start
                 d[f"predict_{k}_end"] = a.char_end
-                d[NP] += np[j]
+                d[C.NP] += np[j]
                 #else:
                 #    d[f"predict_{k}_label"] = ''
                 #    d[f"predict_{k}_text"] = ''
                 #    d[f"predict_{k}_start"] = None
                 #    d[f"predict_{k}_end"] = None
 
-            d[FP] = d[NP] - d[TP]
-            d[FN] = d[NT] - d[TP]
+            d[C.FP] = d[C.NP] - d[C.TP]
+            d[C.FN] = d[C.NT] - d[C.TP]
 
 
             doc.append(d)
@@ -718,11 +834,11 @@ def score_entities_detailed(gold, predict, entity_scoring=EXACT, include_subtype
 
                 a = p[j]
 
-                d[NT] = 0
-                d[NP] = v
-                d[TP] = 0
-                d[FP] = d[NP] - d[TP]
-                d[FN] = d[NT] - d[TP]
+                d[C.NT] = 0
+                d[C.NP] = v
+                d[C.TP] = 0
+                d[C.FP] = d[C.NP] - d[C.TP]
+                d[C.FN] = d[C.NT] - d[C.TP]
 
                 d["label"] = label_name(a)
                 d["gold_label"] = ''
@@ -752,10 +868,10 @@ def score_entities_detailed(gold, predict, entity_scoring=EXACT, include_subtype
 
 
 
-def score_events(gold, predict, \
-                        trigger_scoring = EXACT,
-                        argument_scoring = EXACT,
-                        include_subtype = False):
+def score_events(gold, predict, labeled_args, \
+                        score_trig = SCORE_TRIG,
+                        score_span = SCORE_SPAN,
+                        score_labeled = SCORE_LABELED):
     '''
     Evaluate predicted events against true events
 
@@ -777,107 +893,37 @@ def score_events(gold, predict, \
     for g, p in zip(gold, predict):
 
         nt += get_event_counts(g, \
-                                trigger_scoring = trigger_scoring,
-                                argument_scoring = argument_scoring,
-                                include_subtype = include_subtype)
+                                labeled_args = labeled_args,
+                                score_trig = score_trig,
+                                score_span = score_span,
+                                score_labeled = score_labeled)
 
         np += get_event_counts(p, \
-                                trigger_scoring = trigger_scoring,
-                                argument_scoring = argument_scoring,
-                                include_subtype = include_subtype)
+                                labeled_args = labeled_args,
+                                score_trig = score_trig,
+                                score_span = score_span,
+                                score_labeled = score_labeled)
 
         tp += get_event_matches(g, p, \
-                                trigger_scoring = trigger_scoring,
-                                argument_scoring = argument_scoring,
-                                include_subtype = include_subtype)
+                                labeled_args = labeled_args,
+                                score_trig = score_trig,
+                                score_span = score_span,
+                                score_labeled = score_labeled)
     counter = Counter()
-    for name, d in [(NT, nt), (NP, np), (TP, tp)]:
+    for name, d in [(C.NT, nt), (C.NP, np), (C.TP, tp)]:
         d = augment_dict_keys(d, name)
         counter.update(d)
 
-    df = get_event_df(counter, include_subtype=include_subtype)
+    df = get_event_df(counter)
 
     return df
 
-def score_full(gold_entities, predict_entities, gold_events, predict_events, \
-                scoring = EXACT,
-                entity_scoring = None,
-                trigger_scoring = None,
-                argument_scoring = None,
-                path = None,
-                description = None,
-                ids = None):
 
-    if scoring is None:
-        assert entity_scoring is not None
-        assert trigger_scoring is not None
-        assert argument_scoring is not None
-
-    elif scoring == EXACT:
-        entity_scoring = EXACT
-        trigger_scoring = EXACT
-        argument_scoring = EXACT
-        description = EXACT
-
-    elif scoring == OVERLAP:
-        entity_scoring = OVERLAP
-        trigger_scoring = OVERLAP
-        argument_scoring = OVERLAP
-        description = OVERLAP
-
-    elif scoring == PARTIAL:
-        entity_scoring = PARTIAL
-        trigger_scoring = OVERLAP
-        argument_scoring = PARTIAL
-        description = PARTIAL
-
-    elif scoring == LABEL:
-        entity_scoring = LABEL
-        trigger_scoring = OVERLAP
-        argument_scoring = LABEL
-        description = LABEL
-    else:
-        raise ValueError(f"invalid scoring type: {scoring}")
-
-
-    df_entity_type = score_entities(gold_entities, predict_entities, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = False)
-
-    df_entity_subtype = score_entities(gold_entities, predict_entities, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = True)
-
-    df_argument_type = score_events(gold_events, predict_events, \
-                                    trigger_scoring = trigger_scoring,
-                                    argument_scoring = argument_scoring,
-                                    include_subtype = False)
-
-    df_argument_subtype = score_events(gold_events, predict_events, \
-                                    trigger_scoring = trigger_scoring,
-                                    argument_scoring = argument_scoring,
-                                    include_subtype = True)
-
-    df_dict = OrderedDict()
-    df_dict["entity_type"] =    df_entity_type
-    df_dict["entity_subtype"] = df_entity_subtype
-    df_dict["argument_type"] = df_argument_type
-    df_dict["argument_subtype"] = df_argument_subtype
-
-
-    if path is not None:
-        for k, df in df_dict.items():
-            f = os.path.join(path, f"{k}_{description}.csv")
-            df.to_csv(f, index=False)
-
-    return df_dict
-
-def score_docs(gold_docs, predict_docs, \
-                            scoring = [EXACT],
-                            entity_scoring = None,
-                            trigger_scoring = None,
-                            argument_scoring = None,
-                            destination = None,
+def score_docs(gold_docs, predict_docs, labeled_args, \
+                            score_trig = SCORE_TRIG,
+                            score_span = SCORE_SPAN,
+                            score_labeled = SCORE_LABELED,
+                            path = None,
                             description = None):
 
     """
@@ -886,10 +932,12 @@ def score_docs(gold_docs, predict_docs, \
 
     assert isinstance(gold_docs, dict)
     assert isinstance(predict_docs, dict)
+
     g = sorted(list(gold_docs.keys()))
     p = sorted(list(predict_docs.keys()))
-    assert len(g) == len(p), f"{len(g)} vs {len(p)}"
-    assert g == p, f"{g} vs {p}"
+
+    assert len(g) == len(p), f"Document count mismatch. Gold doc count={len(g)}. Predict doc count={len(p)}"
+    assert g == p, f"Document ids do not match. Gold doc ids={g}. Predict doc ids={p}"
 
 
     gold_entities = []
@@ -915,39 +963,49 @@ def score_docs(gold_docs, predict_docs, \
     Score events
     """
 
-    if isinstance(scoring, str):
-        scoring = [scoring]
 
-    df_dict = OrderedDict()
-    for s in scoring:
+    # df_entity_type = score_entities(gold_entities, predict_entities, \
+    #                                 entity_scoring = entity_scoring,
+    #                                 include_subtype = False)
+    #
+    # df_entity_subtype = score_entities(gold_entities, predict_entities, \
+    #                                 entity_scoring = entity_scoring,
+    #                                 include_subtype = True)
 
-        df_dict[s] = score_full( \
-                    gold_entities = gold_entities,
-                    predict_entities = predict_entities,
-                    gold_events = gold_events,
-                    predict_events = predict_events,
-                    scoring = s,
-                    entity_scoring = entity_scoring,
-                    trigger_scoring = trigger_scoring,
-                    argument_scoring = argument_scoring,
-                    path = destination,
-                    description = description,
-                    ids = ids)
+    df_events = score_events(gold_events, predict_events, \
+                                    labeled_args = labeled_args,
+                                    score_trig = score_trig,
+                                    score_span = score_span,
+                                    score_labeled = score_labeled)
+
+    #
+    # df_dict = OrderedDict()
+    # df_dict["entity_type"] =    df_entity_type
+    # df_dict["entity_subtype"] = df_entity_subtype
+    # df_dict["argument_type"] = df_argument_type
+    # df_dict["argument_subtype"] = df_argument_subtype
+    #
+    #
+    if path is not None:
+        k = 'scores'
+        if description is None:
+            f = f"{k}.csv"
+        else:
+            f = f"{k}_{description}.csv"
+        f = os.path.join(path, f)
+        df_events.to_csv(f, index=False)
+
+    return df_events
 
 
 
-    return df_dict
-
-
-
-def score_brat_events(gold_dir, predict_dir, \
+def score_brat(gold_dir, predict_dir, labeled_args, \
                             corpus_class = CorpusBrat,
                             sample_count = None,
-                            scoring = [EXACT],
-                            entity_scoring = None,
-                            trigger_scoring = None,
-                            argument_scoring = None,
-                            destination = None,
+                            score_trig = SCORE_TRIG,
+                            score_span = SCORE_SPAN,
+                            score_labeled = SCORE_LABELED,
+                            path = None,
                             description = None):
 
 
@@ -957,160 +1015,19 @@ def score_brat_events(gold_dir, predict_dir, \
     predict_corpus = corpus_class()
     predict_corpus.import_dir(predict_dir, n=sample_count)
 
-    gold_docs = gold_corpus.docs()
-    predict_docs = predict_corpus.docs()
+
+    assert gold_corpus.doc_count()    > 0, f"Could not find any BRAT files at: {gold_dir}"
+    assert predict_corpus.doc_count() > 0, f"Could not find any BRAT files at: {predict_dir}"
+
+    gold_docs =    gold_corpus.docs(as_dict=True)
+    predict_docs = predict_corpus.docs(as_dict=True)
 
     df_dict = score_docs(gold_docs, predict_docs, \
-                            scoring = scoring,
-                            entity_scoring = entity_scoring,
-                            trigger_scoring = trigger_scoring,
-                            argument_scoring = argument_scoring,
-                            destination = destination,
+                            labeled_args = labeled_args,
+                            score_trig = score_trig,
+                            score_span = score_span,
+                            score_labeled = score_labeled,
+                            path = path,
                             description = description)
 
     return df_dict
-
-
-
-def get_token_count(tokens, length_max=None):
-
-    token_count = len(tokens)
-
-    if length_max is not None:
-        token_count = min(token_count, length_max)
-    return token_count
-
-
-def entity_error_analysis(gold, predict, entity_scoring=EXACT, include_subtype=False, entity_types=None, length_max=None):
-    '''
-    Evaluate predicted entities against true entities
-
-    Parameters
-    ----------
-    gold: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
-    predict: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
-    entity_scoring: scoring type as str in ["exact", "overlap", "partial"]
-    include_subtype: include subtype in result, as bool
-    '''
-
-    assert len(gold) == len(predict)
-
-    entity_filter = lambda entities, types: [entity for entity in entities if entity.type_ in types]
-
-
-
-    # iterate over documents
-    count_nt = Counter()
-    count_np = Counter()
-    count_tp = Counter()
-    false_negatives = []
-    for g, p in zip(gold, predict):
-
-        if entity_types is not None:
-            g = entity_filter(g, entity_types)
-            p = entity_filter(p, entity_types)
-
-        nt = get_entity_counts(g, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = include_subtype,
-                                    return_counts_by_entity = True)
-
-        np = get_entity_counts(p, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = include_subtype,
-                                    return_counts_by_entity = True)
-
-        tp = get_entity_matches(g, p, \
-                                entity_scoring = entity_scoring,
-                                include_subtype = include_subtype,
-                                return_counts_by_entity = True)
-
-        assert len(nt) == len(g)
-        assert len(tp) == len(g)
-        for g_, nt_, tp_ in zip(g, nt, tp):
-
-            token_count = get_token_count(g_.tokens, length_max=length_max)
-
-            count_nt[token_count] += nt_
-
-            idxs, n = tp_
-            if n:
-                assert len(idxs) == 1
-                idx = idxs[0]
-                count_tp[token_count] += n
-            else:
-                false_negatives.append(g_)
-
-
-        assert len(np) == len(p)
-        for p_, np_ in zip(p, np):
-
-            token_count = get_token_count(p_.tokens, length_max=length_max)
-
-            count_np[token_count] += np_
-
-    counts = list(count_nt.keys()) + list(count_np.keys())
-    counts = sorted(list(set(counts)))
-
-    rows = []
-    for c in counts:
-        nt = count_nt[c]
-        np = count_np[c]
-        tp = count_tp[c]
-        rows.append((c, nt, np, tp))
-    df = pd.DataFrame(rows, columns=["token_count", NT, NP, TP])
-    df = PRF(df)
-    df = df.fillna(0)
-
-    rows = []
-    for entity in false_negatives:
-        d = OrderedDict()
-        d["type"] = entity.type_
-        d["subtype"] = 'none' if entity.subtype is None else entity.subtype
-        d["token_count"] = len(entity.tokens)
-        d["text"] = entity.text.lower()
-        rows.append(d)
-    df_fn = pd.DataFrame(rows)
-    columns = df_fn.columns.tolist()
-    df_fn["count"] = 1
-    #df_fn =  df_fn.groupby(columns).sum()
-    #df_fn = df_fn.groupby(df_fn.columns.tolist()).size().reset_index().\
-    #rename(columns={0:'records'})
-    agg = {"count":"sum"}
-    #df_fn = df_fn.groupby(["type", "subtype", "text"]).agg(agg)
-    df_fn = df_fn.groupby(columns).agg(agg)
-    df_fn = df_fn.reset_index()
-    df_fn = df_fn.sort_values(["count", "token_count"], ascending=[False, True])
-
-    return df, df_fn
-
-
-"""
-
-def score_relations(gold, predict, \
-                    head_scoring = EXACT,
-                    tail_scoring = EXACT,
-                    include_subtype = False):
-
-
-    nt = get_relation_counts(gold, \
-                            head_scoring = head_scoring,
-                            tail_scoring = tail_scoring,
-                            include_subtype = include_subtype)
-
-    np = get_relation_counts(predict, \
-                            head_scoring = head_scoring,
-                            tail_scoring = tail_scoring,
-                            include_subtype = include_subtype)
-
-    tp = get_relation_matches(gold, predict, \
-                                    head_scoring = head_scoring,
-                                    tail_scoring = tail_scoring,
-                                    include_subtype = include_subtype)
-    counter = Counter()
-    for name, d in [(NT, nt), (NP, np), (TP, tp)]:
-        d = augment_dict_keys(d, name)
-        counter.update(d)
-
-    return counter
-"""

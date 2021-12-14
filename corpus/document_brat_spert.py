@@ -1,10 +1,7 @@
 
 
 
-
-
 from corpus.document_brat import DocumentBrat
-
 
 
 class DocumentBratSpert(DocumentBrat):
@@ -29,11 +26,13 @@ class DocumentBratSpert(DocumentBrat):
             tokenizer = tokenizer
             )
 
-        self.get_annotations(ann)
+        self.get_annotations(event_dict, relation_dict, tb_dict, attr_dict)
         self.get_tokens(text, tokenizer)
 
 
     def get_annotations(self, event_dict, relation_dict, tb_dict, attr_dict):
+
+        self.ann = None
 
         # Extract events, text bounds, and attributes from annotation string
         self.event_dict = event_dict

@@ -26,12 +26,19 @@ class CorpusBratSpert(CorpusBrat):
         spert_doc_dict = spert2doc_dict(path)
 
         for id, spert_doc in spert_doc_dict.items():
-            event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs)
+            text, event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs)
 
-    # # process documents
-    # # iterate over documents in corpus
-    # corpus = CorpusPredict()
-    # for id, spert_doc in by_doc.items():
-    #     print(id)
-    #     doc = spert2brat_doc(spert_doc, tokenizer=tokenizer)
-    #     #corpus.add_doc(doc)
+            doc = self.document_class( \
+                id = id,
+                text = text,
+                event_dict = event_dict,
+                relation_dict = relation_dict,
+                tb_dict = tb_dict,
+                attr_dict = attr_dict,
+                tags = None,
+                tokenizer = tokenizer
+                )
+
+            # Build corpus
+            assert doc.id not in self.docs_
+            self.docs_[doc.id] = doc

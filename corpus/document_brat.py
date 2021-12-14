@@ -148,9 +148,13 @@ class DocumentBrat(Document):
     def __init__(self, \
         id,
         text,
-        ann,
+        ann = None,
         tags = None,
-        tokenizer = None
+        tokenizer = None,
+        event_dict = None,
+        relation_dict = None,
+        tb_dict = None,
+        attr_dict = None,
         ):
 
         Document.__init__(self, \
@@ -159,24 +163,35 @@ class DocumentBrat(Document):
             tags = tags,
             )
 
-        self.get_annotations(ann)
-        self.get_tokens(text, tokenizer)
-
-
-    def get_annotations(self, ann):
-
-        self.ann = ann
-
-        # Extract events, text bounds, and attributes from annotation string
-        self.event_dict, self.relation_dict, self.tb_dict, self.attr_dict = get_annotations(ann)
-
-
-    def get_tokens(self, text, tokenizer):
-
         if tokenizer is None:
             self.indices, self.token_offsets = None, None
         else:
             self.tokens, self.token_offsets = tokenize_document(text, tokenizer)
+
+
+        self.ann = ann
+
+        if ann is not None:
+
+            assert event_dict is None
+            assert relation_dict is None
+            assert tb_dict is None
+            assert attr_dict is None
+
+            # Extract events, text bounds, and attributes from annotation string
+            self.event_dict, self.relation_dict, self.tb_dict, self.attr_dict = get_annotations(ann)
+
+        else:
+            assert event_dict is not None
+            assert relation_dict is not None
+            assert tb_dict is not None
+            assert attr_dict is not None
+
+            self.event_dict = event_dict
+            self.relation_dict = relation_dict
+            self.tb_dict = tb_dict
+            self.attr_dict = attr_dict
+
 
     def sentence_count(self):
         return len(self.tokens)

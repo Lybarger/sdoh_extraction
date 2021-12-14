@@ -141,6 +141,8 @@ ATTRIBUTE = "attribute"
 
 ENCODING = 'utf-8'
 
+NA = 'N/A'
+
 # BRAT files
 ANNOTATION_CONF = 'annotation.conf'
 VISUAL_CONF = 'visual.conf'
@@ -171,6 +173,7 @@ EXACT = "exact"
 PARTIAL = "partial"
 OVERLAP = "overlap"
 LABEL = "label"
+MIN_DIST = 'min_dist'
 
 NONE = 'none'
 ID = "id"

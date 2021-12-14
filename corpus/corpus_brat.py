@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 
 
-
+from spert_utils.spert_io import spert2doc_dict, spert_doc2brat_dicts
 from config.constants import ENCODING, ARG_1, ARG_2, ROLE, TYPE, SUBTYPE, EVENT_TYPE, ENTITIES, COUNT, RELATIONS, ENTITIES, EVENTS
 from config.constants import SPACY_MODEL, SUBTYPE_DEFAULT, TRIGGER
 from corpus.corpus import Corpus
@@ -112,7 +112,6 @@ class CorpusBrat(Corpus):
                     tags = tag_function(id)
 
 
-                # print(id)
                 doc = self.document_class( \
                     id = id,
                     text = text,
@@ -437,3 +436,32 @@ class CorpusBrat(Corpus):
             df.to_csv(f, index=False)
 
         return df
+
+
+    def import_spert_corpus(self, path, argument_pairs):
+
+
+
+        tokenizer = spacy.load(self.spacy_model)
+
+
+        spert_doc_dict = spert2doc_dict(path)
+
+        for id, spert_doc in spert_doc_dict.items():
+            text, event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs)
+
+            doc = self.document_class( \
+                id = id,
+                text = text,
+                ann = None,
+                tags = None,
+                tokenizer = tokenizer,
+                event_dict = event_dict,
+                relation_dict = relation_dict,
+                tb_dict = tb_dict,
+                attr_dict = attr_dict,
+                )
+
+            # Build corpus
+            assert doc.id not in self.docs_
+            self.docs_[doc.id] = doc
