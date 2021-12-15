@@ -230,6 +230,8 @@ SUBTYPE_DEFAULT = 'no_subtype'
 
 SPACY_MODEL = 'en_core_web_sm'
 
+MIMIC = "mimic"
+
 DARK_RED = tuple(np.array([184,    84, 80])/255)
 DARK_BLUE = tuple(np.array([108,  142, 191])/255)
 DARK_GOLD = tuple(np.array([224,  172, 46])/255)

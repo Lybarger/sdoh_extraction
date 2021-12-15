@@ -36,7 +36,7 @@ from spert_utils.spert_io import merge_spert_files, spert2corpus
 
 from spert_utils.config_setup import create_event_types_path, get_dataset_stats
 from spert_utils.convert_brat import RELATION_DEFAULT
-from scoring.scoring import score_brat_events
+from scoring.scoring import score_brat
 
 from spert_utils.spert_io import swap_type2subtype, map_type2subtype, plot_loss
 from spert_utils.spert_scoring import score_spert_docs
@@ -80,8 +80,8 @@ def cfg():
 
     config_file = os.path.join(destination, "config.conf")
 
-    train_subset = C.TRAIN
-    valid_subset = C.DEV
+    train_include = [C.TRAIN, C.MIMIC]
+    valid_include = [C.DEV, C.MIMIC]
 
     train_path = os.path.join(destination, 'data_train.json')
     valid_path = os.path.join(destination, 'data_valid.json')
@@ -156,7 +156,7 @@ def cfg():
     include_word_piece_task = False
     concat_word_piece_logits = False
 
-    device = 0
+    device = 3
 
     model_config = OrderedDict()
     model_config["label"] = label
@@ -208,7 +208,7 @@ def cfg():
 @ex.automain
 def main(source_file, destination, config_file, model_config, spert_path, \
         types_config, mapping, fast_count,
-        train_path, train_subset, valid_path, valid_subset, event_types,
+        train_path, train_include, valid_path, valid_include, event_types,
         entity_types, types_path, transfer_argument_pairs):
 
     '''
@@ -221,7 +221,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     # apply corpus mapping
     #corpus.map_(**mapping, path=destination)
     brat_true = os.path.join(destination, "brat_true")
-    corpus.write_brat(path=brat_true, include=valid_subset)
+    corpus.write_brat(path=brat_true, include=valid_include)
 
 
 
@@ -229,23 +229,23 @@ def main(source_file, destination, config_file, model_config, spert_path, \
 
     # create formatted data
     logging.info(f"Pre processing data")
-    for path, subset in [(train_path, train_subset), (valid_path, valid_subset)]:
+    for path, include in [(train_path, train_include), (valid_path, valid_include)]:
 
         logging.info("")
-        logging.info(f"subset:          {subset}")
+        logging.info(f"include:         {include}")
         logging.info(f"event_types:     {event_types}")
         logging.info(f"entity_types:    {entity_types}")
         logging.info(f"path:            {path}")
         logging.info(f"fast_count:      {fast_count}")
         corpus.events2spert( \
-                    include = subset,
+                    include = include,
                     event_types = event_types,
                     entity_types = entity_types,
                     path = path,
                     sample_count = fast_count,
                     include_doc_text = True)
-
-        get_dataset_stats(dataset_path=path, dest_path=destination, name=subset)
+        name = "-".join(include)
+        get_dataset_stats(dataset_path=path, dest_path=destination, name=name)
 
     # create spert types file
     create_event_types_path(**types_config, path=types_path)
@@ -292,6 +292,13 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     brat_predict = os.path.join(destination, "brat_predict")
     corpus_predict.write_brat(path=brat_predict)
 
+    df = score_brat(brat_true, brat_predict, \
+                                labeled_args = [C.STATUS_TIME, C.TYPE_LIVING, C.STATUS_EMPLOY],
+                                score_trig = C.MIN_DIST,
+                                score_span = C.PARTIAL,
+                                score_labeled = C.OVERLAP,
+                                path = destination,
+                                description = None)
     # z = sldkjf
     #
     # logging.info(f"Scoring predictions")
@@ -304,7 +311,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     # # load corpus
     # corpus = joblib.load(source_file)
     #
-    # gold_docs = corpus.docs(include=valid_subset, as_dict=True)
+    # gold_docs = corpus.docs(include=valid_include, as_dict=True)
     #
     # predict_corpus = spert2corpus(merged_file)
     # predict_docs = predict_corpus.docs(as_dict=True)
