@@ -17,6 +17,10 @@ CONFIG_MAP = {}
 CONFIG_MAP["model_path"] = "save_path"
 CONFIG_MAP["tokenizer_path"] = "save_path"
 
+from spert_utils.spert_io import ID, TOKENS, OFFSETS, ENTITIES, RELATIONS, SUBTYPES, TYPE, START, END, HEAD, TAIL
+
+
+
 def dict_to_config_file(params, path):
 
     print(params)
@@ -79,12 +83,37 @@ def get_dataset_stats(dataset_path, dest_path, name='none'):
     relation_counter = Counter()
     subtype_counter = Counter()
     for sent in data:
+
+        tokens = sent[TOKENS]
+        entities = sent[ENTITIES]
+        relations = sent[RELATIONS]
+        subtypes = sent[SUBTYPES]
+
+
+
         sent_count += 1
-        word_count += len(sent["tokens"])
-        for entity in sent["entities"]:
-            entity_counter[entity["type"]] += 1
-        for relation in sent["relations"]:
-            relation_counter[relation["type"]] += 1
+        word_count += len(tokens)
+        for i, entity in enumerate(entities):
+            subtype = subtypes[i]
+
+            k = (entity[TYPE], subtype[TYPE])
+
+            entity_counter[k] += 1
+
+        for relation in relations:
+            head_index = relation[HEAD]
+            tail_index = relation[TAIL]
+
+            head_entity = entities[head_index]
+            tail_entity = entities[tail_index]
+
+            head_subtype = subtypes[head_index]
+            tail_subtype = subtypes[tail_index]
+
+            k = (head_entity[TYPE], head_subtype[TYPE],
+                 tail_entity[TYPE], tail_subtype[TYPE])
+
+            relation_counter[k] += 1
 
         if "subtypes" in sent:
             for subtype in sent["subtypes"]:
@@ -93,7 +122,10 @@ def get_dataset_stats(dataset_path, dest_path, name='none'):
     logging.info("")
     logging.info(f"Data set summary")
 
-    df = pd.DataFrame(entity_counter.items())
+    columns = ["entity_type", "subtype", "count"]
+    counts = [tuple(list(k) + [v]) for k, v in entity_counter.items()]
+    df = pd.DataFrame(counts, columns=columns)
+    df = df.sort_values(["entity_type", "subtype"])
     f = os.path.join(dest_path, f"{name}_entity_counts.csv")
     df.to_csv(f, index=False)
     logging.info(f"")
@@ -105,11 +137,16 @@ def get_dataset_stats(dataset_path, dest_path, name='none'):
     logging.info(f"")
     logging.info(f"Subtype counts:\n{df}")
 
-    df = pd.DataFrame(relation_counter.items())
+
+    columns = ["head_type", "head_subtype", "tail_type", "tail_subtype", "count"]
+    counts = [tuple(list(k) + [v]) for k, v in relation_counter.items()]
+    df = pd.DataFrame(counts, columns=columns)
+    df = df.sort_values(["head_type", "head_subtype", "tail_type"])
     f = os.path.join(dest_path, f"{name}_relation_counts.csv")
     df.to_csv(f, index=False)
     logging.info(f"")
     logging.info(f"Relation counts:\n{df}")
+
 
     return None
 

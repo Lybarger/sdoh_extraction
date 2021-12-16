@@ -19,12 +19,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import shutil
 
 
-from corpus.corpus_brat_spert import CorpusBratSpert
+from corpus.corpus_brat_spert import CorpusBrat
 import config.constants as C
 
 
 
-prediction_file = '/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/unknown2/data_valid.json'
+prediction_file = '/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/e8_d2/predictions.json'
 
 transfer_argument_pairs = { \
         C.ALCOHOL:       C.STATUS_TIME,
@@ -33,6 +33,6 @@ transfer_argument_pairs = { \
         C.LIVING_STATUS: C.TYPE_LIVING,
         C.EMPLOYMENT:    C.STATUS_EMPLOY}
 
-corpus = CorpusBratSpert()
+corpus = CorpusBrat()
 
 corpus.import_spert_corpus(path=prediction_file, argument_pairs=transfer_argument_pairs)

@@ -24,15 +24,15 @@ from scoring.scoring import score_brat
 import config.constants as C
 
 
-gold_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/unknown2_TRUNCATED/brat_true/"
-predict_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/unknown2_TRUNCATED/brat_true/"
+gold_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/cheating_12/brat_true/"
+predict_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/cheating_12/brat_predict/"
 
 
 df = score_brat(gold_dir, predict_dir, \
                             labeled_args = [C.STATUS_TIME, C.TYPE_LIVING, C.STATUS_EMPLOY],
-                            score_trig = C.MIN_DIST,
+                            score_trig = C.OVERLAP,
                             score_span = C.PARTIAL,
-                            score_labeled = C.OVERLAP,
+                            score_labeled = C.LABEL,
                             path = '/home/lybarger/sdoh_challenge/repository/sandbox',
                             description = None)
 print(df)

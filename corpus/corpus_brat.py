@@ -438,7 +438,7 @@ class CorpusBrat(Corpus):
         return df
 
 
-    def import_spert_corpus(self, path, argument_pairs):
+    def import_spert_corpus(self, path, argument_pairs, attr_type_map=None):
 
 
 
@@ -449,6 +449,11 @@ class CorpusBrat(Corpus):
 
         for id, spert_doc in spert_doc_dict.items():
             text, event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs)
+
+            if attr_type_map is not None:
+                for attr in attr_dict.values():
+                    attr.type_ = attr_type_map(attr.type_)
+
 
             doc = self.document_class( \
                 id = id,

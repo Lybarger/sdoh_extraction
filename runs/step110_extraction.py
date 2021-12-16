@@ -81,11 +81,13 @@ def cfg():
     config_file = os.path.join(destination, "config.conf")
 
     train_include = [C.TRAIN, C.MIMIC]
-    valid_include = [C.DEV, C.MIMIC]
+    valid_include = train_include # [C.DEV, C.MIMIC]
 
     train_path = os.path.join(destination, 'data_train.json')
     valid_path = os.path.join(destination, 'data_valid.json')
     types_path = os.path.join(destination, "types.conf")
+
+    attr_type_map = lambda x: f"{x}Val"
 
     # corpus preprocessing
     mapping = {}
@@ -115,6 +117,20 @@ def cfg():
 
     spert_path = '/home/lybarger/spert_plus/'
 
+    labeled_args = [C.STATUS_TIME, C.TYPE_LIVING, C.STATUS_EMPLOY]
+    scoring_defs = [ \
+                    dict( \
+                        score_trig = C.MIN_DIST,
+                        score_span = C.PARTIAL,
+                        score_labeled = C.LABEL,
+                        description = 'relaxed'),
+                    dict( \
+                        score_trig = C.OVERLAP,
+                        score_span = C.EXACT,
+                        score_labeled = C.LABEL,
+                        description = 'strict')
+    ]
+
     """
     Model parameters
     """
@@ -130,7 +146,7 @@ def cfg():
     eval_batch_size = 2
     neg_entity_count = 100
     neg_relation_count = 100
-    epochs = 2 if fast_run else 8
+    epochs = 5 if fast_run else 8
     lr = 5e-5
     lr_warmup = 0.1
     weight_decay = 0.01
@@ -146,6 +162,7 @@ def cfg():
     final_eval = True
     log_path = f'{destination}/log/'
     save_path = f'{destination}/save/'
+    no_overlapping = False
 
     subtype_classification = C.CONCAT_LOGITS
     projection_size = 100
@@ -195,6 +212,7 @@ def cfg():
     model_config["include_word_piece_task"] = include_word_piece_task
     model_config["concat_word_piece_logits"] = concat_word_piece_logits
     model_config["device"] = device
+    model_config["no_overlapping"] = no_overlapping
 
     # Scratch directory
     make_and_clear(destination)
@@ -205,11 +223,14 @@ def cfg():
     ex.observers.append(file_observ)
     ex.observers.append(cust_observ)
 
+
+
 @ex.automain
 def main(source_file, destination, config_file, model_config, spert_path, \
         types_config, mapping, fast_count,
         train_path, train_include, valid_path, valid_include, event_types,
-        entity_types, types_path, transfer_argument_pairs):
+        entity_types, types_path, transfer_argument_pairs, attr_type_map,
+        scoring_defs, labeled_args):
 
     '''
     Prepare spert inputs
@@ -222,7 +243,6 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     #corpus.map_(**mapping, path=destination)
     brat_true = os.path.join(destination, "brat_true")
     corpus.write_brat(path=brat_true, include=valid_include)
-
 
 
     corpus.transfer_subtype_value(transfer_argument_pairs, path=destination)
@@ -283,22 +303,24 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     plot_loss(loss_csv_file, loss_column='loss')
 
     predict_file = os.path.join(model_config["log_path"], C.PREDICTIONS_JSON)
+
+
     merged_file = os.path.join(destination, C.PREDICTIONS_JSON)
     merge_spert_files(model_config["valid_path"], predict_file, merged_file)
-
+    # get_dataset_stats(dataset_path=merged_file, dest_path=destination, name="predict")
 
     corpus_predict = CorpusBrat()
-    corpus_predict.import_spert_corpus(path=merged_file, argument_pairs=transfer_argument_pairs)
+    corpus_predict.import_spert_corpus(path=merged_file, \
+                                    argument_pairs = transfer_argument_pairs,
+                                    attr_type_map = attr_type_map)
     brat_predict = os.path.join(destination, "brat_predict")
     corpus_predict.write_brat(path=brat_predict)
 
-    df = score_brat(brat_true, brat_predict, \
-                                labeled_args = [C.STATUS_TIME, C.TYPE_LIVING, C.STATUS_EMPLOY],
-                                score_trig = C.MIN_DIST,
-                                score_span = C.PARTIAL,
-                                score_labeled = C.OVERLAP,
-                                path = destination,
-                                description = None)
+    for scoring_def in scoring_defs:
+        df = score_brat(brat_true, brat_predict, \
+                                    labeled_args = labeled_args,
+                                    path = destination,
+                                    **scoring_def)
     # z = sldkjf
     #
     # logging.info(f"Scoring predictions")
