@@ -8,7 +8,7 @@ from collections import Counter, OrderedDict
 
 import config.constants as C
 from corpus.corpus_brat import CorpusBrat
-from corpus.labels import Entity
+#from corpus.labels import Entity
 
 SCORE_TRIG = C.EXACT
 SCORE_SPAN = C.EXACT
@@ -662,7 +662,7 @@ def get_event_df(counts):
     count_cols = [C.NT, C.NP, C.TP]
 
 
-    cols = [C.EVENT_TYPE, C.ENTITY, C.ENTITY_SUBTYPE]
+    cols = [C.EVENT, C.ARGUMENT, C.SUBTYPE]
 
 
     counts = [list(k) + [v] for k, v in counts.items()]
@@ -987,12 +987,13 @@ def score_docs(gold_docs, predict_docs, labeled_args, \
     #
     #
     if path is not None:
-        k = 'scores'
-        if description is None:
-            f = f"{k}.csv"
+        if '.csv' in path:
+            f = path
+        elif description is None:
+            f = os.path.join(path, 'scores.csv')
         else:
-            f = f"{k}_{description}.csv"
-        f = os.path.join(path, f)
+            f = os.path.join(path, f"scores_{description}.csv")
+
         df_events.to_csv(f, index=False)
 
     return df_events

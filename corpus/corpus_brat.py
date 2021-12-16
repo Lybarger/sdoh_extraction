@@ -9,11 +9,11 @@ from collections import OrderedDict, Counter
 import hashlib
 import logging
 import json
+import spacy
 
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-
+# import matplotlib as mpl
+# mpl.use('Agg')
+# import matplotlib.pyplot as plt
 
 
 from spert_utils.spert_io import spert2doc_dict, spert_doc2brat_dicts
@@ -24,7 +24,7 @@ from corpus.document_brat import DocumentBrat
 from corpus.brat import get_brat_files
 from corpus.tokenization import get_tokenizer, map2ascii
 from utils.proj_setup import make_and_clear
-import spacy
+
 
 
 def counter2df(counter, columns=None):
