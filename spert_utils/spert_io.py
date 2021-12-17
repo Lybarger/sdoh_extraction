@@ -753,17 +753,6 @@ def swap_type2subtype(file_in, file_out, subtype_val=None):
 
     json.dump(doc, open(file_out, 'w'))
 
-# def swap_type2subtype(file_in, file_out, map_):
-#
-#     doc = json.load(open(file_in, 'r'))
-#
-#     for i, sent in enumerate(doc):
-#         sent[SUBTYPES] = copy.deepcopy(sent[ENTITIES])
-#
-#         for d in sent[ENTITIES]:
-#             d[TYPE] = map_[d[TYPE]]
-#
-#     json.dump(doc, open(file_out, 'w'))
 
 def map_type2subtype(file_in, file_out, map_):
 

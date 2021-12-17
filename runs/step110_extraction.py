@@ -28,9 +28,9 @@ from utils.proj_setup import make_and_clear
 
 
 import config.paths as paths
-from corpus.tokenization import get_tokenizer, get_context
+
 from corpus.corpus_brat import CorpusBrat
-from layers.transformer_misc import get_length_percentiles
+
 from spert_utils.config_setup import dict_to_config_file, get_prediction_file
 from spert_utils.spert_io import merge_spert_files, spert2corpus
 
@@ -49,6 +49,21 @@ import config.constants as C
 # Define experiment and load ingredients
 ex = Experiment('step110_extraction')
 
+'''
+pip3 install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
+
+
+
+
+
+import warnings
+warnings.filterwarnings("error")
+
+ UserWarning: floor_divide is deprecated, and will be removed in a future version of pytorch. It currently rounds toward 0 (like the 'trunc' function NOT 'floor'). This results in incorrect rounding for negative values.
+To keep the current behavior, use torch.div(a, b, rounding_mode='trunc'), or for actual floor division, use torch.div(a, b, rounding_mode='floor'). (Triggered internally at  /pytorch/aten/src/ATen/native/BinaryOps.cpp:467.)
+  return torch.floor_divide(self, other)
+
+'''
 
 
 @ex.config
@@ -72,7 +87,7 @@ def cfg():
         subdir = mode
 
     fast_run = False
-    fast_count = 200 if fast_run else None
+    fast_count = 100 if fast_run else None
 
     destination = os.path.join(output_dir, subdir, description)
     if fast_run:
@@ -81,7 +96,7 @@ def cfg():
     config_file = os.path.join(destination, "config.conf")
 
     train_include = [C.TRAIN, C.MIMIC]
-    valid_include = train_include # [C.DEV, C.MIMIC]
+    valid_include = [C.DEV, C.MIMIC]
 
     train_path = os.path.join(destination, 'data_train.json')
     valid_path = os.path.join(destination, 'data_valid.json')
@@ -142,11 +157,11 @@ def cfg():
     model_path = "emilyalsentzer/Bio_ClinicalBERT" #'bert-base-cased'
     tokenizer_path = model_path
 
-    train_batch_size = 15
+    train_batch_size = 50
     eval_batch_size = 2
     neg_entity_count = 100
     neg_relation_count = 100
-    epochs = 5 if fast_run else 8
+    epochs = 6 if fast_run else 8
     lr = 5e-5
     lr_warmup = 0.1
     weight_decay = 0.01
@@ -162,7 +177,7 @@ def cfg():
     final_eval = True
     log_path = f'{destination}/log/'
     save_path = f'{destination}/save/'
-    no_overlapping = False
+    no_overlapping = True
 
     subtype_classification = C.CONCAT_LOGITS
     projection_size = 100
@@ -173,7 +188,7 @@ def cfg():
     include_word_piece_task = False
     concat_word_piece_logits = False
 
-    device = 3
+    device = 1
 
     model_config = OrderedDict()
     model_config["label"] = label

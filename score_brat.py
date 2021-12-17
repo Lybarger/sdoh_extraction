@@ -56,9 +56,6 @@ def main(args):
 
 
     '''
-    print('hello')
-    print(args)
-    print(vars(args))
 
     arg_dict = vars(args)
 

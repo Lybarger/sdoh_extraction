@@ -8,7 +8,7 @@ from collections import Counter, OrderedDict
 
 import config.constants as C
 from corpus.corpus_brat import CorpusBrat
-#from corpus.labels import Entity
+from corpus.labels import Entity
 
 SCORE_TRIG = C.EXACT
 SCORE_SPAN = C.EXACT
