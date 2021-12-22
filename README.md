@@ -6,4 +6,4 @@ The BRAT configuration files are available at [annotation.conf](resources/annota
 
 
 ## Scoring Routine
-The evaluation criteria are defined in [sdoh_scoring.pdf] (resources/sdoh_scoring.pdf).
+The evaluation criteria are defined in [sdoh_scoring.pdf](resources/sdoh_scoring.pdf).
