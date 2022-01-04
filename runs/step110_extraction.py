@@ -86,7 +86,7 @@ def cfg():
     if subdir is None:
         subdir = mode
 
-    fast_run = False
+    fast_run = True
     fast_count = 100 if fast_run else None
 
     destination = os.path.join(output_dir, subdir, description)
@@ -129,6 +129,7 @@ def cfg():
 
     entity_types = C.EVENT_TYPES + C.SPAN_ONLY_ARGUMENTS
     event_types = C.EVENT_TYPES
+    argument_types = C.EVENT_TYPES + C.LABELED_ARGUMENTS + C.SPAN_ONLY_ARGUMENTS
 
     spert_path = '/home/lybarger/spert_plus/'
 
@@ -245,7 +246,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
         types_config, mapping, fast_count,
         train_path, train_include, valid_path, valid_include, event_types,
         entity_types, types_path, transfer_argument_pairs, attr_type_map,
-        scoring_defs, labeled_args):
+        scoring_defs, labeled_args, argument_types):
 
     '''
     Prepare spert inputs
@@ -257,7 +258,10 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     # apply corpus mapping
     #corpus.map_(**mapping, path=destination)
     brat_true = os.path.join(destination, "brat_true")
-    corpus.write_brat(path=brat_true, include=valid_include)
+    corpus.write_brat(path=brat_true, \
+                    include=valid_include,
+                    event_types=event_types,
+                    argument_types=argument_types)
 
 
     corpus.transfer_subtype_value(transfer_argument_pairs, path=destination)
@@ -336,29 +340,6 @@ def main(source_file, destination, config_file, model_config, spert_path, \
                                     labeled_args = labeled_args,
                                     path = destination,
                                     **scoring_def)
-    # z = sldkjf
-    #
-    # logging.info(f"Scoring predictions")
-    # logging.info(f"Gold file:                     {model_config['valid_path']}")
-    # logging.info(f"Prediction file, original:     {predict_file}")
-    # logging.info(f"Prediction file, merged_file:  {merged_file}")
-    #
-    #
-    #
-    # # load corpus
-    # corpus = joblib.load(source_file)
-    #
-    # gold_docs = corpus.docs(include=valid_include, as_dict=True)
-    #
-    # predict_corpus = spert2corpus(merged_file)
-    # predict_docs = predict_corpus.docs(as_dict=True)
-    #
-    # gold_docs = OrderedDict([(k, v) for k, v in gold_docs.items() if k in predict_docs])
-    #
-    # score_spert_docs(valid_path, merged_file, destination)
-    #
-    # score_docs(gold_docs, predict_docs, \
-    #                         scoring = [EXACT, OVERLAP, PARTIAL, LABEL],
-    #                         destination = destination)
+
 
     return 'Successful completion'

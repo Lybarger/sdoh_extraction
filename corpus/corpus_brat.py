@@ -328,11 +328,14 @@ class CorpusBrat(Corpus):
 
         return dfs
 
-    def write_brat(self, path, include=None, exclude=None):
+    def write_brat(self, path, include=None, exclude=None, \
+                                event_types=None, argument_types=None):
 
         make_and_clear(path, recursive=True)
         for doc in self.docs(include=include, exclude=exclude):
-            doc.write_brat(path)
+            doc.write_brat(path, \
+                            event_types = event_types,
+                            argument_types = argument_types)
 
     def tag_summary(self, path, include=None, exclude=None):
 

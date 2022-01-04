@@ -120,9 +120,11 @@ class Event(object):
     def __str__(self):
         return str(self.__dict__)
 
-    def brat_str(self):
-        return event_str(id=self.id, event_type=self.type_, \
-                            textbounds=self.arguments)
+    def brat_str(self, tb_ids_keep=None):
+        return event_str(id=self.id, \
+                            event_type = self.type_, \
+                            textbounds = self.arguments,
+                            tb_ids_keep = tb_ids_keep)
 
 
 class Relation(object):
@@ -579,7 +581,7 @@ def attr_str(attr_id, arg_type, tb_id, value):
         value = value)
 
 
-def event_str(id, event_type, textbounds):
+def event_str(id, event_type, textbounds, tb_ids_keep=None):
     '''
     Create event string
 
@@ -607,7 +609,8 @@ def event_str(id, event_type, textbounds):
         if arg_type == TRIGGER:
             arg_type = event_type
 
-        out += '{}:T{} '.format(arg_type, tb_id)
+        if (tb_ids_keep is None) or (tb_id in tb_ids_keep):
+            out += '{}:T{} '.format(arg_type, tb_id)
 
     return out
 

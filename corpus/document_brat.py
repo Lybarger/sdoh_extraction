@@ -19,6 +19,34 @@ from spert_utils.spert_io import doc2spert
 
 #from spert_utils.convert_brat import
 
+
+def ids_to_keep(event_dict, tb_dict, event_types=None, argument_types=None):
+
+
+    event_ids_keep = set([])
+    tb_ids_keep = set([])
+
+    # iterate over events
+    for event_id, event in event_dict.items():
+
+        # iterate over arguments in current event, including trigger
+        for arg_role, tb_id in event.arguments.items():
+
+            # get text bound for current argument
+            tb = tb_dict[tb_id]
+
+            # check for event and argument type equivalence
+            event_type_match =    (event_types is None) or    (event.type_ in event_types)
+            argument_type_match = (argument_types is None) or (tb.type_ in argument_types)
+
+            # collect ids if match
+            if event_type_match and argument_type_match:
+                event_ids_keep.add(event_id)
+                tb_ids_keep.add(tb_id)
+
+    return (event_ids_keep, tb_ids_keep)
+
+
 def non_white_space_check(x, y):
     x = "".join(x.split())
     y = "".join(y.split())
@@ -284,25 +312,47 @@ class DocumentBrat(Document):
     def Xy(self):
         return (self.X(), self.y())
 
-    def brat_str(self):
+    def brat_str(self, event_types=None, argument_types=None):
+
+
+
+        event_ids_keep, tb_ids_keep = ids_to_keep( \
+                                event_dict = self.event_dict,
+                                tb_dict = self.tb_dict,
+                                event_types = event_types,
+                                argument_types = argument_types)
+
 
         ann = []
-        for _, x in self.tb_dict.items():
-            ann.append(x.brat_str())
+
+        for tb_id, tb in self.tb_dict.items():
+            if tb_id in tb_ids_keep:
+                ann.append(tb.brat_str())
+
         for _, x in self.relation_dict.items():
             ann.append(x.brat_str())
-        for _, x in self.event_dict.items():
-            ann.append(x.brat_str())
-        for _, x in self.attr_dict.items():
-            ann.append(x.brat_str())
+
+        for event_id, event in self.event_dict.items():
+            if event_id in event_ids_keep:
+                ann.append(event.brat_str(tb_ids_keep=tb_ids_keep))
+
+        for tb_id, attr in self.attr_dict.items():
+            if tb_id in tb_ids_keep:
+                ann.append(attr.brat_str())
+
         ann = "\n".join(ann)
 
         return ann
 
-    def write_brat(self, path):
+    def write_brat(self, path, event_types=None, argument_types=None):
 
         fn_text = write_txt(path, self.id, self.text)
-        fn_ann = write_ann(path, self.id, self.brat_str())
+
+        ann = self.brat_str( \
+                    event_types = event_types,
+                    argument_types = argument_types)
+
+        fn_ann = write_ann(path, self.id, ann)
 
         return (fn_text, fn_ann)
 
