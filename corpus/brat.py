@@ -596,23 +596,30 @@ def event_str(id, event_type, textbounds, tb_ids_keep=None):
     if isinstance(id, str) and (id[0] == "E"):
         id = id[1:]
 
-    # Start event string
-    out = 'E{}\t'.format(id)
+    if tb_ids_keep is not None:
+        textbounds = OrderedDict([(arg_type, tb_id) \
+            for arg_type, tb_id in textbounds.items() if tb_id in tb_ids_keep])
 
-    # Create event representation
-    event_args = []
-    for arg_type, tb_id in textbounds.items():
+    if len(textbounds) == 0:
+        return ''
 
-        if tb_id[0] == "T":
-            tb_id = tb_id[1:]
+    else:
+        # Start event string
+        out = 'E{}\t'.format(id)
 
-        if arg_type == TRIGGER:
-            arg_type = event_type
+        # Create event representation
+        event_args = []
+        for arg_type, tb_id in textbounds.items():
 
-        if (tb_ids_keep is None) or (tb_id in tb_ids_keep):
+            if tb_id[0] == "T":
+                tb_id = tb_id[1:]
+
+            if arg_type == TRIGGER:
+                arg_type = event_type
+
             out += '{}:T{} '.format(arg_type, tb_id)
 
-    return out
+        return out
 
 
 def relation_str(id, role, arg1, arg2):

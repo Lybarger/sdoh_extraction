@@ -87,7 +87,7 @@ def cfg():
         subdir = mode
 
     fast_run = True
-    fast_count = 100 if fast_run else None
+    fast_count = 200 if fast_run else None
 
     destination = os.path.join(output_dir, subdir, description)
     if fast_run:
@@ -96,7 +96,7 @@ def cfg():
     config_file = os.path.join(destination, "config.conf")
 
     train_include = [C.TRAIN, C.MIMIC]
-    valid_include = [C.DEV, C.MIMIC]
+    valid_include = [C.DEV,   C.MIMIC]
 
     train_path = os.path.join(destination, 'data_train.json')
     valid_path = os.path.join(destination, 'data_valid.json')
@@ -162,7 +162,7 @@ def cfg():
     eval_batch_size = 2
     neg_entity_count = 100
     neg_relation_count = 100
-    epochs = 6 if fast_run else 8
+    epochs = 3 if fast_run else 8
     lr = 5e-5
     lr_warmup = 0.1
     weight_decay = 0.01
@@ -263,6 +263,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
                     event_types=event_types,
                     argument_types=argument_types)
 
+    #z = lskdjf
 
     corpus.transfer_subtype_value(transfer_argument_pairs, path=destination)
 
