@@ -75,7 +75,8 @@ def cfg():
     """
     Paths
     """
-    source = "sdoh"
+    source = "sdoh_challenge"
+
     source_file = os.path.join(paths.brat_import, source, C.CORPUS_FILE)
 
     output_dir = paths.extraction
@@ -103,6 +104,12 @@ def cfg():
     types_path = os.path.join(destination, "types.conf")
 
     attr_type_map = lambda x: f"{x}Val"
+    arg_role_map = {\
+                    C.STATUS_TIME:   C.STATUS,
+                    C.STATUS_EMPLOY: C.STATUS,
+                    C.TYPE_LIVING:   'Type'}
+
+    skip_dup_trig = True
 
     # corpus preprocessing
     mapping = {}
@@ -136,15 +143,31 @@ def cfg():
     labeled_args = [C.STATUS_TIME, C.TYPE_LIVING, C.STATUS_EMPLOY]
     scoring_defs = [ \
                     dict( \
-                        score_trig = C.MIN_DIST,
-                        score_span = C.PARTIAL,
+                        score_trig = C.EXACT,
+                        score_span = C.EXACT,
                         score_labeled = C.LABEL,
-                        description = 'relaxed'),
+                        description = 'trigExact_labeledLabel_spanExact'),
                     dict( \
                         score_trig = C.OVERLAP,
                         score_span = C.EXACT,
                         score_labeled = C.LABEL,
-                        description = 'strict')
+                        description = 'trigOverlap_labeledLabel_spanExact'),
+                    dict( \
+                        score_trig = C.MIN_DIST,
+                        score_span = C.EXACT,
+                        score_labeled = C.LABEL,
+                        description = 'trigDist_labeledLabel_spanExact'),
+                    dict( \
+                        score_trig = C.OVERLAP,
+                        score_span = C.OVERLAP,
+                        score_labeled = C.LABEL,
+                        description = 'trigOverlap_labeledLabel_spanOverlap'),
+                    dict( \
+                        score_trig = C.OVERLAP,
+                        score_span = C.PARTIAL,
+                        score_labeled = C.LABEL,
+                        description = 'trigOverlap_labeledLabel_spanPartial'),
+
     ]
 
     """
@@ -158,11 +181,11 @@ def cfg():
     model_path = "emilyalsentzer/Bio_ClinicalBERT" #'bert-base-cased'
     tokenizer_path = model_path
 
-    train_batch_size = 50
+    train_batch_size = 30
     eval_batch_size = 2
     neg_entity_count = 100
     neg_relation_count = 100
-    epochs = 3 if fast_run else 8
+    epochs = 3 if fast_run else 25
     lr = 5e-5
     lr_warmup = 0.1
     weight_decay = 0.01
@@ -246,7 +269,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
         types_config, mapping, fast_count,
         train_path, train_include, valid_path, valid_include, event_types,
         entity_types, types_path, transfer_argument_pairs, attr_type_map,
-        scoring_defs, labeled_args, argument_types):
+        scoring_defs, labeled_args, argument_types, arg_role_map, skip_dup_trig):
 
     '''
     Prepare spert inputs
@@ -332,7 +355,9 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     corpus_predict = CorpusBrat()
     corpus_predict.import_spert_corpus(path=merged_file, \
                                     argument_pairs = transfer_argument_pairs,
-                                    attr_type_map = attr_type_map)
+                                    arg_role_map = arg_role_map,
+                                    attr_type_map = attr_type_map,
+                                    skip_dup_trig = skip_dup_trig)
     brat_predict = os.path.join(destination, "brat_predict")
     corpus_predict.write_brat(path=brat_predict)
 

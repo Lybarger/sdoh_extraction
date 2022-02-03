@@ -38,15 +38,51 @@ ID_FIELD = "id"
 SUBSET_FIELD = "subset"
 SOURCE_FIELD = "source"
 
+
+def tag_function_anno(id, annotator_position=0, subset_position=1, source_position=2):
+
+    parts = id.split(os.sep)
+
+    annotator = parts[annotator_position]
+
+    subset = parts[subset_position]
+    assert subset in [TRAIN, DEV, TEST, QC]
+
+    source = parts[source_position]
+
+    tags = set([annotator, subset, source])
+
+    return tags
+
+def tag_function(id, subset_position=0, source_position=1):
+
+    parts = id.split(os.sep)
+
+    subset = parts[subset_position]
+    assert subset in [TRAIN, DEV, TEST, QC]
+
+    source = parts[source_position]
+
+    tags = set([subset, source])
+
+    return tags
+
+
+
 @ex.config
 def cfg():
 
 
 
-    source = 'sdoh'
+    source = 'sdoh_review'
 
-    if source == 'sdoh':
-        source_dir = paths.brat_annotation
+    tag_func = tag_function
+    if source == 'sdoh_review':
+        source_dir = paths.sdoh_corpus_review
+        tag_func = tag_function_anno
+
+    elif source == 'sdoh_challenge':
+        source_dir = paths.sdoh_corpus_challenge
     else:
         raise ValueError("invalid source")
 
@@ -85,28 +121,16 @@ def cfg():
     ex.observers.append(cust_observ)
 
 
-def tag_function(id, annotator_position=0, subset_position=1, source_position=2):
-
-    parts = id.split(os.sep)
-
-    annotator = parts[annotator_position]
-
-    subset = parts[subset_position]
-    assert subset in [TRAIN, DEV, TEST, QC]
-
-    source = parts[source_position]
-
-    tags = set([annotator, subset, source])
-
-    return tags
 
 
 @ex.automain
 def main(destination, source_dir, fast_run, corpus_object,  \
         fast_count, skip, brat_dir, annotator_position,
-        labeled_arguments, required_arguments, id_pattern, event_types):
+        labeled_arguments, required_arguments, id_pattern, event_types,
+        tag_func):
 
     tokenizer = get_tokenizer()
+
 
     '''
     Events
@@ -116,7 +140,7 @@ def main(destination, source_dir, fast_run, corpus_object,  \
     corpus.import_dir(source_dir, \
                     n = fast_count,
                     skip = skip,
-                    tag_function = tag_function)
+                    tag_function = tag_func)
 
     corpus.span_histogram(path=destination, entity_types=event_types)
 

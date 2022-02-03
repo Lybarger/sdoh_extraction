@@ -111,6 +111,8 @@ def get_event_counts(events, labeled_args, \
     Get histogram of entity labels
     """
 
+
+
     assert score_trig in    [C.EXACT, C.OVERLAP, C.MIN_DIST]
     assert score_span in    [C.EXACT, C.OVERLAP, C.PARTIAL]
     assert score_labeled in [C.EXACT, C.OVERLAP, C.LABEL]
@@ -145,6 +147,7 @@ def get_event_counts(events, labeled_args, \
             else:
                 if score_span == C.PARTIAL:
                     c = argument.token_end - argument.token_start
+
                 else:
                     pass
 
@@ -681,11 +684,45 @@ def get_event_df(counts):
 
     return df
 
+def summarize_event_df(df, name=None):
+
+    count_cols = [C.NT, C.NP, C.TP]
+
+    df_sum = df[count_cols].sum().to_frame().transpose()
+
+    df_sum = PRF(df_sum)
 
 
+    if name is not None:
+        if isinstance(name, str):
+            df_sum.insert(0, "name", name)
+        elif isinstance(name, (tuple, list)):
+            for i, n in enumerate(name):
+                df_sum.insert(i, f"col{i}", n)
+    return df_sum
 
+def summarize_event_csv(f, name=None):
 
+    df = pd.read_csv(f)
+    df = summarize_event_df(df, name=name)
 
+    return df
+
+def summarize_event_dfs(df_dict):
+
+    dfs = []
+    for k, df in df_dict.items():
+        dfs.append(summarize_event_df(df, name=k))
+    df = pd.concat(dfs)
+
+    return df
+
+def summarize_event_csvs(file_dict):
+
+    df_dict = OrderedDict([(name, pd.read_csv(f)) for name, f in file_dict.items()])
+    df = summarize_event_dfs(df_dict)
+
+    return df
 
 def score_entities(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
     '''

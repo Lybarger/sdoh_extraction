@@ -10,6 +10,7 @@ import hashlib
 import logging
 import json
 import spacy
+import string
 
 # import matplotlib as mpl
 # mpl.use('Agg')
@@ -441,7 +442,8 @@ class CorpusBrat(Corpus):
         return df
 
 
-    def import_spert_corpus(self, path, argument_pairs, attr_type_map=None):
+    def import_spert_corpus(self, path, argument_pairs, \
+            arg_role_map=None, attr_type_map=None, skip_dup_trig=False):
 
 
 
@@ -452,6 +454,27 @@ class CorpusBrat(Corpus):
 
         for id, spert_doc in spert_doc_dict.items():
             text, event_dict, relation_dict, tb_dict, attr_dict = spert_doc2brat_dicts(spert_doc, argument_pairs)
+
+            if skip_dup_trig:
+                for event in event_dict.values():
+                    arguments_new = OrderedDict()
+
+                    for i, (arg_role, tb_id) in enumerate(event.arguments.items()):
+                        if (i == 0) or (arg_role.rstrip(string.digits) != event.type_):
+                            arguments_new[arg_role] = tb_id
+                    event.arguments = arguments_new
+
+
+            if arg_role_map is not None:
+                for event in event_dict.values():
+                    arguments_new = OrderedDict()
+                    for arg_role, tb_id in event.arguments.items():
+                        arg_role_new = arg_role_map.get(arg_role, arg_role)
+                        arguments_new[arg_role_new] = tb_id
+                    event.arguments = arguments_new
+
+
+
 
             if attr_type_map is not None:
                 for attr in attr_dict.values():

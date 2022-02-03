@@ -35,7 +35,7 @@ from config.constants import ENTITIES, SCORES_FILE, NT, NP, TP, P, R, F1, SUBTYP
 import config.constants as C
 import config.paths as paths
 from corpus.tokenization import get_tokenizer, get_context
-from scoring.scoring import PRF
+from scoring.scoring import PRF, summarize_event_csvs
 from scipy.stats import ttest_ind
 
 # Define experiment and load ingredients
@@ -52,11 +52,19 @@ def cfg():
     source_dir = os.path.join(paths.extraction, dirname)
     destination = os.path.join(paths.summary,   dirname)
 
-    score_files = ["scores_relaxed.csv", "scores_strict.csv"]
+    score_files = OrderedDict([ \
+                    ("strict",                "scores_strict.csv"),
+                    ("relaxed_trig_overlap",  "scores_relaxed_trig_overlap.csv"),
+                    ("relaxed_trig_min_dist", "scores_relaxed_trig_min_dist.csv"),
+                    ("relaxed_all",           "scores_relaxed_all.csv"),
+                    ])
 
     value_columns = [NT, NP, TP]
     event_types = C.EVENT_TYPES
-    argument_types = [C.TRIGGER] + C.LABELED_ARGUMENTS + C.SPAN_ONLY_ARGUMENTS
+    trigger = C.TRIGGER
+    labeled_arguments = C.LABELED_ARGUMENTS
+    span_only_arguments = C.SPAN_ONLY_ARGUMENTS
+    argument_types = [trigger] + label_arguments + span_only_arguments
 
 
     #params = ["epochs", "prop_drop", "lr", "subtype_classification"]
@@ -96,7 +104,8 @@ def cfg():
 
 
 @ex.automain
-def main(source_dir, destination, score_files, event_types, argument_types):
+def main(source_dir, destination, score_files, event_types, argument_types,
+    trigger, labeled_arguments, span_only_arguments):
 
 
     # get all sub directories
@@ -115,11 +124,22 @@ def main(source_dir, destination, score_files, event_types, argument_types):
         y = event_rank[event] * 10 + argument_rank[argument]
         return y
 
-    for score_file in score_files:
+    score_file_dict = OrderedDict()
+    for name, score_file in score_files.items():
         dfs = []
         for result_dir in result_dirs:
+
+
+            base = os.path.basename(result_dir)
+
             target_file = os.path.join(result_dir, score_file)
+
+            k = (name, base)
+            score_file_dict[k] = target_file
+
             df = pd.read_csv(target_file)
+
+
 
             df = df[df["event"].isin(event_types)]
             df = df[df["argument"].isin(argument_types)]
@@ -128,7 +148,7 @@ def main(source_dir, destination, score_files, event_types, argument_types):
 
             dirname = result_dir.name
             df["run"] = dirname
-            
+
 
             dfs.append(df)
         df = pd.concat(dfs)
@@ -142,12 +162,13 @@ def main(source_dir, destination, score_files, event_types, argument_types):
         pt["rank"] = pt.apply(ranker, axis=1)
         pt = pt.sort_values("rank")
         del pt["rank"]
-        print(pt)
+
         f = os.path.join(destination, score_file)
         pt.to_csv(f)
 
 
 
-
+    df = summarize_event_csvs(score_file_dict)
+    print(df)
 
     return 'Successful completion'
