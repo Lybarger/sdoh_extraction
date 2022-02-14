@@ -24,9 +24,9 @@ from scoring.scoring import score_brat
 import config.constants as C
 
 
-gold_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/e25_d2/brat_true/"
-predict_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/e25_d2/brat_predict/"
-path = '/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/e25_d2/'
+gold_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/sdoh_challenge_25_d2/brat_true/"
+predict_dir = "/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/sdoh_challenge_25_d2/brat_predict/"
+path = '/home/lybarger/sdoh_challenge/analyses/step110_extraction/train/sdoh_challenge_25_d2/'
 
 df = score_brat(gold_dir, predict_dir, \
                             labeled_args = [C.STATUS_TIME, C.TYPE_LIVING, C.STATUS_EMPLOY],
@@ -35,7 +35,7 @@ df = score_brat(gold_dir, predict_dir, \
                             score_labeled = C.LABEL,
                             path = path,
                             description = 'trig_exact_span_exact')
-print(df)
+
 
 
 df = score_brat(gold_dir, predict_dir, \

@@ -1,4 +1,3 @@
-
 import json
 import pandas as pd
 import os
@@ -31,30 +30,29 @@ def PRF(df):
 
     return df
 
-def augment_dict_keys(d, x):
-
-    # get current keys
-    keys = list(d.keys())
-
-    # iterate over original keys
-    for k_original in keys:
-
-        # create new key
-        k_new = k_original
-        if isinstance(k_new, str):
-            k_new = [k_new]
-        k_new = tuple(list(k_new) + [x])
-
-        # update dictionary
-        d[k_new] = d.pop(k_original)
-
-    return d
+# def augment_dict_keys(d, x):
+#
+#     # get current keys
+#     keys = list(d.keys())
+#
+#     # iterate over original keys
+#     for k_original in keys:
+#
+#         # create new key
+#         k_new = k_original
+#         if isinstance(k_new, str):
+#             k_new = [k_new]
+#         k_new = tuple(list(k_new) + [x])
+#
+#         # update dictionary
+#         d[k_new] = d.pop(k_original)
+#
+#     return d
 
 def get_entity_counts(entities, entity_scoring=C.EXACT, include_subtype=False,
                                                 return_counts_by_entity=False):
     """
     Get histogram of entity labels
-
     Parameters
     ----------
     entities: list of entities, [Entity, Entity,...]
@@ -208,7 +206,6 @@ def separate_matches(X, match_indices):
 def get_entity_diff(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
     """
     Get histogram of matching entities
-
     Parameters
     ----------
     gold: list of entities, [Entity, Entity,...]
@@ -314,7 +311,6 @@ def get_event_diff(gold, predict, scoring=C.EXACT, include_subtype=False):
 def compare_entities(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
     """
     Get histogram of matching entities
-
     Parameters
     ----------
     gold: Entity
@@ -378,7 +374,6 @@ def get_entity_matches(gold, predict, labeled_args, \
                                     event_type = None):
     """
     Get histogram of matching entities
-
     Parameters
     ----------
     gold: list of entities, [Entity, Entity,...]
@@ -627,60 +622,70 @@ def get_event_matches(gold, predict, labeled_args, \
 
 
 
-def get_entity_df(counts, include_subtype=False):
+# def get_entity_df(counts, include_subtype=False):
+#
+#
+#     count_cols = [C.NT, C.NP, C.TP]
+#
+#     cols = [C.TYPE]
+#     if include_subtype:
+#         cols = cols + [C.SUBTYPE]
+#
+#
+#     counts = [list(k) + [v] for k, v in counts.items()]
+#
+#     df = pd.DataFrame(counts, columns= cols + [C.METRIC, C.COUNT])
+#
+#     if include_subtype:
+#         df[C.SUBTYPE].fillna(value="none", inplace=True)
+#
+#     df = pd.pivot_table(df, values=C.COUNT, index=cols, columns=C.METRIC)
+#
+#
+#     df = df.fillna(0).astype(int)
+#     df = df.reset_index()
+#
+#     df = df.sort_values(cols)
+#     for c in count_cols:
+#         if c not in df:
+#             df[c] = 0
+#     df = df[cols + count_cols]
+#     df = PRF(df)
+#     df = df.fillna(0)
+#
+#     return df
+
+def get_event_df(nt, np, tp):
 
 
-    count_cols = [C.NT, C.NP, C.TP]
-
-    cols = [C.TYPE]
-    if include_subtype:
-        cols = cols + [C.SUBTYPE]
-
-
-    counts = [list(k) + [v] for k, v in counts.items()]
-
-    df = pd.DataFrame(counts, columns= cols + [C.METRIC, C.COUNT])
-
-    if include_subtype:
-        df[C.SUBTYPE].fillna(value="none", inplace=True)
-
-    df = pd.pivot_table(df, values=C.COUNT, index=cols, columns=C.METRIC)
-
-
-    df = df.fillna(0).astype(int)
-    df = df.reset_index()
-
-    df = df.sort_values(cols)
-    for c in count_cols:
-        if c not in df:
-            df[c] = 0
-    df = df[cols + count_cols]
-    df = PRF(df)
-    df = df.fillna(0)
-
-    return df
-
-def get_event_df(counts):
-
-    count_cols = [C.NT, C.NP, C.TP]
-
+    count_dict = OrderedDict([(C.NT, nt), (C.NP, np), (C.TP, tp)])
 
     cols = [C.EVENT, C.ARGUMENT, C.SUBTYPE]
 
+    counts = Counter()
+    for name, counter in count_dict.items():
+
+        for (event_type, arg_type, subtype), c in counter.items():
+            k = (event_type, arg_type, subtype, name)
+            assert k not in counts
+            counts[k] = c
 
     counts = [list(k) + [v] for k, v in counts.items()]
+
     df = pd.DataFrame(counts, columns= cols + [C.METRIC, C.COUNT])
 
 
     df = pd.pivot_table(df, values=C.COUNT, index=cols, columns=C.METRIC)
     df = df.fillna(0).astype(int)
     df = df.reset_index()
-    for c in count_cols:
+
+    for c in count_dict.keys():
         if c not in df:
             df[c] = 0
-    df = df[cols + count_cols]
+    df = df[cols + list(count_dict.keys())]
     df = PRF(df)
     df = df.fillna(0)
+    df = df.sort_values(cols)
 
     return df
 
@@ -724,47 +729,46 @@ def summarize_event_csvs(file_dict):
 
     return df
 
-def score_entities(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
-    '''
-    Evaluate predicted entities against true entities
-
-    Parameters
-    ----------
-    gold: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
-    predict: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
-    entity_scoring: scoring type as str in ["exact", "overlap", "partial"]
-    include_subtype: include subtype in result, as bool
-    '''
-
-    assert len(gold) == len(predict)
-
-    nt = Counter()
-    np = Counter()
-    tp = Counter()
-
-    # iterate over documents
-    for g, p in zip(gold, predict):
-
-        nt += get_entity_counts(g, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = include_subtype)
-        np += get_entity_counts(p, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = include_subtype)
-
-        tp += get_entity_matches(g, p, \
-                                entity_scoring = entity_scoring,
-                                include_subtype = include_subtype)
-
-
-    counter = Counter()
-    for name, d in [(C.NT, nt), (C.NP, np), (C.TP, tp)]:
-        d = augment_dict_keys(d, name)
-        counter.update(d)
-
-    df = get_entity_df(counter, include_subtype=include_subtype)
-
-    return df
+# def score_entities(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
+#     '''
+#     Evaluate predicted entities against true entities
+#     Parameters
+#     ----------
+#     gold: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
+#     predict: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
+#     entity_scoring: scoring type as str in ["exact", "overlap", "partial"]
+#     include_subtype: include subtype in result, as bool
+#     '''
+#
+#     assert len(gold) == len(predict)
+#
+#     nt = Counter()
+#     np = Counter()
+#     tp = Counter()
+#
+#     # iterate over documents
+#     for g, p in zip(gold, predict):
+#
+#         nt += get_entity_counts(g, \
+#                                     entity_scoring = entity_scoring,
+#                                     include_subtype = include_subtype)
+#         np += get_entity_counts(p, \
+#                                     entity_scoring = entity_scoring,
+#                                     include_subtype = include_subtype)
+#
+#         tp += get_entity_matches(g, p, \
+#                                 entity_scoring = entity_scoring,
+#                                 include_subtype = include_subtype)
+#
+#
+#     counter = Counter()
+#     for name, d in [(C.NT, nt), (C.NP, np), (C.TP, tp)]:
+#         d = augment_dict_keys(d, name)
+#         counter.update(d)
+#
+#     df = get_entity_df(counter, include_subtype=include_subtype)
+#
+#     return df
 
 def label_name(entity):
 
@@ -774,144 +778,142 @@ def label_name(entity):
         return f"{entity.type_} ({entity.subtype})"
 
 
-def score_entities_detailed(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
-    '''
-    Evaluate predicted entities against true entities
-
-    Parameters
-    ----------
-    gold: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
-    predict: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
-    entity_scoring: scoring type as str in ["exact", "overlap", "partial"]
-    include_subtype: include subtype in result, as bool
-    '''
-
-    assert len(gold) == len(predict)
-
-
-
-
-    docs = []
-
-    # iterate over documents
-    for g, p in zip(gold, predict):
-
-        nt = get_entity_counts(g, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = include_subtype,
-                                    return_counts_by_entity = True)
-
-        np = get_entity_counts(p, \
-                                    entity_scoring = entity_scoring,
-                                    include_subtype = include_subtype,
-                                    return_counts_by_entity = True)
-
-        tp = get_entity_matches(g, p, \
-                                entity_scoring = entity_scoring,
-                                include_subtype = include_subtype,
-                                return_counts_by_entity = True)
-
-        doc = []
-        matched_predict = []
-        for i, (matched_j, v) in enumerate(tp):
-
-            d = OrderedDict()
-
-            a = g[i]
-            d[C.NT] = nt[i]
-            d[C.NP] = 0
-            d[C.TP] = v
-            d[C.FP] = -1
-            d[C.FN] = -1
-
-
-            d["label"] = label_name(a)
-            d["gold_label"] = label_name(a)
-            d["gold_text"] = a.text
-            d["gold_start"] = a.char_start
-            d["gold_end"] = a.char_end
-
-            matched_predict.extend(matched_j)
-            for k, j in enumerate(matched_j):
-                #assert len(matched_j) <= 3, len(matched_j)
-                #for k in range(3):
-
-                #if k < len(matched_j):
-
-
-                assert v > 0
-                #j = matched_j[k]
-
-                a = p[j]
-                d[f"predict_{k}_label"] = label_name(a)
-                d[f"predict_{k}_text"] = a.text
-                d[f"predict_{k}_start"] = a.char_start
-                d[f"predict_{k}_end"] = a.char_end
-                d[C.NP] += np[j]
-                #else:
-                #    d[f"predict_{k}_label"] = ''
-                #    d[f"predict_{k}_text"] = ''
-                #    d[f"predict_{k}_start"] = None
-                #    d[f"predict_{k}_end"] = None
-
-            d[C.FP] = d[C.NP] - d[C.TP]
-            d[C.FN] = d[C.NT] - d[C.TP]
-
-
-            doc.append(d)
-
-
-        matched_predict = set(matched_predict)
-
-
-        for j, v in enumerate(np):
-            if j not in matched_predict:
-                d = OrderedDict()
-
-
-                a = p[j]
-
-                d[C.NT] = 0
-                d[C.NP] = v
-                d[C.TP] = 0
-                d[C.FP] = d[C.NP] - d[C.TP]
-                d[C.FN] = d[C.NT] - d[C.TP]
-
-                d["label"] = label_name(a)
-                d["gold_label"] = ''
-                d["gold_text"] = ''
-                d["gold_start"] = None
-                d["gold_end"] = None
-
-                k = 0
-                d[f"predict_{k}_label"] = label_name(a)
-                d[f"predict_{k}_text"] = a.text
-                d[f"predict_{k}_start"] = a.char_start
-                d[f"predict_{k}_end"] = a.char_end
-
-                #for k in range(1,3):
-                #    d[f"predict_{k}_label"] = ''
-                #    d[f"predict_{k}_text"] = ''
-                #    d[f"predict_{k}_start"] = None
-                #    d[f"predict_{k}_end"] = None
-
-                doc.append(d)
-
-
-        docs.append(doc)
-
-
-    return docs
-
+# def score_entities_detailed(gold, predict, entity_scoring=C.EXACT, include_subtype=False):
+#     '''
+#     Evaluate predicted entities against true entities
+#     Parameters
+#     ----------
+#     gold: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
+#     predict: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
+#     entity_scoring: scoring type as str in ["exact", "overlap", "partial"]
+#     include_subtype: include subtype in result, as bool
+#     '''
+#
+#     assert len(gold) == len(predict)
+#
+#
+#
+#
+#     docs = []
+#
+#     # iterate over documents
+#     for g, p in zip(gold, predict):
+#
+#         nt = get_entity_counts(g, \
+#                                     entity_scoring = entity_scoring,
+#                                     include_subtype = include_subtype,
+#                                     return_counts_by_entity = True)
+#
+#         np = get_entity_counts(p, \
+#                                     entity_scoring = entity_scoring,
+#                                     include_subtype = include_subtype,
+#                                     return_counts_by_entity = True)
+#
+#         tp = get_entity_matches(g, p, \
+#                                 entity_scoring = entity_scoring,
+#                                 include_subtype = include_subtype,
+#                                 return_counts_by_entity = True)
+#
+#         doc = []
+#         matched_predict = []
+#         for i, (matched_j, v) in enumerate(tp):
+#
+#             d = OrderedDict()
+#
+#             a = g[i]
+#             d[C.NT] = nt[i]
+#             d[C.NP] = 0
+#             d[C.TP] = v
+#             d[C.FP] = -1
+#             d[C.FN] = -1
+#
+#
+#             d["label"] = label_name(a)
+#             d["gold_label"] = label_name(a)
+#             d["gold_text"] = a.text
+#             d["gold_start"] = a.char_start
+#             d["gold_end"] = a.char_end
+#
+#             matched_predict.extend(matched_j)
+#             for k, j in enumerate(matched_j):
+#                 #assert len(matched_j) <= 3, len(matched_j)
+#                 #for k in range(3):
+#
+#                 #if k < len(matched_j):
+#
+#
+#                 assert v > 0
+#                 #j = matched_j[k]
+#
+#                 a = p[j]
+#                 d[f"predict_{k}_label"] = label_name(a)
+#                 d[f"predict_{k}_text"] = a.text
+#                 d[f"predict_{k}_start"] = a.char_start
+#                 d[f"predict_{k}_end"] = a.char_end
+#                 d[C.NP] += np[j]
+#                 #else:
+#                 #    d[f"predict_{k}_label"] = ''
+#                 #    d[f"predict_{k}_text"] = ''
+#                 #    d[f"predict_{k}_start"] = None
+#                 #    d[f"predict_{k}_end"] = None
+#
+#             d[C.FP] = d[C.NP] - d[C.TP]
+#             d[C.FN] = d[C.NT] - d[C.TP]
+#
+#
+#             doc.append(d)
+#
+#
+#         matched_predict = set(matched_predict)
+#
+#
+#         for j, v in enumerate(np):
+#             if j not in matched_predict:
+#                 d = OrderedDict()
+#
+#
+#                 a = p[j]
+#
+#                 d[C.NT] = 0
+#                 d[C.NP] = v
+#                 d[C.TP] = 0
+#                 d[C.FP] = d[C.NP] - d[C.TP]
+#                 d[C.FN] = d[C.NT] - d[C.TP]
+#
+#                 d["label"] = label_name(a)
+#                 d["gold_label"] = ''
+#                 d["gold_text"] = ''
+#                 d["gold_start"] = None
+#                 d["gold_end"] = None
+#
+#                 k = 0
+#                 d[f"predict_{k}_label"] = label_name(a)
+#                 d[f"predict_{k}_text"] = a.text
+#                 d[f"predict_{k}_start"] = a.char_start
+#                 d[f"predict_{k}_end"] = a.char_end
+#
+#                 #for k in range(1,3):
+#                 #    d[f"predict_{k}_label"] = ''
+#                 #    d[f"predict_{k}_text"] = ''
+#                 #    d[f"predict_{k}_start"] = None
+#                 #    d[f"predict_{k}_end"] = None
+#
+#                 doc.append(d)
+#
+#
+#         docs.append(doc)
+#
+#
+#     return docs
 
 
-def score_events(gold, predict, labeled_args, \
+
+def score_events(ids, gold, predict, labeled_args, \
                         score_trig = SCORE_TRIG,
                         score_span = SCORE_SPAN,
                         score_labeled = SCORE_LABELED):
     '''
     Evaluate predicted events against true events
-
     Parameters
     ----------
     gold: nested list of entities, [[Entity, Entity,...], [Entity, Entity,...]]
@@ -921,40 +923,60 @@ def score_events(gold, predict, labeled_args, \
     '''
 
     assert len(gold) == len(predict)
+    assert len(ids) == len(gold)
 
-    nt = Counter()
-    np = Counter()
-    tp = Counter()
+    nt_corpus = Counter()
+    np_corpus = Counter()
+    tp_corpus = Counter()
+
+    dfs = []
 
     # iterate over documents
-    for g, p in zip(gold, predict):
+    for id, g, p in zip(ids, gold, predict):
 
-        nt += get_event_counts(g, \
+        nt_doc = get_event_counts(g, \
                                 labeled_args = labeled_args,
                                 score_trig = score_trig,
                                 score_span = score_span,
                                 score_labeled = score_labeled)
 
-        np += get_event_counts(p, \
+        np_doc = get_event_counts(p, \
                                 labeled_args = labeled_args,
                                 score_trig = score_trig,
                                 score_span = score_span,
                                 score_labeled = score_labeled)
 
-        tp += get_event_matches(g, p, \
+        tp_doc = get_event_matches(g, p, \
                                 labeled_args = labeled_args,
                                 score_trig = score_trig,
                                 score_span = score_span,
                                 score_labeled = score_labeled)
-    counter = Counter()
-    for name, d in [(C.NT, nt), (C.NP, np), (C.TP, tp)]:
-        d = augment_dict_keys(d, name)
-        counter.update(d)
 
-    df = get_event_df(counter)
+        df = get_event_df(nt_doc, np_doc, tp_doc)
+        df.insert(0, 'id', id)
+        dfs.append(df)
 
-    return df
+        nt_corpus += nt_doc
+        np_corpus += np_doc
+        tp_corpus += tp_doc
 
+    df_detailed = pd.concat(dfs)
+
+    df_summary = get_event_df(nt_corpus, np_corpus, tp_corpus)
+
+    return (df_summary, df_detailed)
+
+
+def get_path(path, description=None, ext='.csv', name='scores'):
+
+    if ext in path:
+        f = path
+    elif description is None:
+        f = os.path.join(path, f'{name}{ext}')
+    else:
+        f = os.path.join(path, f"{name}_{description}{ext}")
+
+    return f
 
 def score_docs(gold_docs, predict_docs, labeled_args, \
                             score_trig = SCORE_TRIG,
@@ -986,8 +1008,8 @@ def score_docs(gold_docs, predict_docs, labeled_args, \
         gold_doc = gold_docs[id]
         predict_doc = predict_docs[id]
 
-        gold_entities.append(gold_doc.entities())
-        predict_entities.append(predict_doc.entities())
+        # gold_entities.append(gold_doc.entities())
+        # predict_entities.append(predict_doc.entities())
 
         gold_events.append(gold_doc.events())
         predict_events.append(predict_doc.events())
@@ -1009,11 +1031,11 @@ def score_docs(gold_docs, predict_docs, labeled_args, \
     #                                 entity_scoring = entity_scoring,
     #                                 include_subtype = True)
 
-    df_events = score_events(gold_events, predict_events, \
-                                    labeled_args = labeled_args,
-                                    score_trig = score_trig,
-                                    score_span = score_span,
-                                    score_labeled = score_labeled)
+    df_summary, df_detailed = score_events(ids, gold_events, predict_events, \
+                            labeled_args = labeled_args,
+                            score_trig = score_trig,
+                            score_span = score_span,
+                            score_labeled = score_labeled)
 
     #
     # df_dict = OrderedDict()
@@ -1024,16 +1046,16 @@ def score_docs(gold_docs, predict_docs, labeled_args, \
     #
     #
     if path is not None:
-        if '.csv' in path:
-            f = path
-        elif description is None:
-            f = os.path.join(path, 'scores.csv')
-        else:
-            f = os.path.join(path, f"scores_{description}.csv")
 
-        df_events.to_csv(f, index=False)
+        f = get_path(path, description=description, ext='.csv', name='scores_summary')
+        df_summary.to_csv(f, index=False)
 
-    return df_events
+        f = get_path(path, description=description, ext='.csv', name='scores_detailed')
+        df_detailed.to_csv(f, index=False)
+
+
+
+    return df_summary
 
 
 

@@ -46,23 +46,22 @@ ex = Experiment('step122_compare_scoring_criteria')
 def cfg():
 
 
-    subdir = 'train/e25_d2/'
+    subdir = 'train/sdoh_challenge_25_d2/'
+    subdir = 'train/sdoh_review_25_d2/'
 
     source_dir = os.path.join(paths.extraction, subdir)
 
     destination = os.path.join(paths.compare_scoring_criteria,   subdir)
 
-    score_files = OrderedDict([ \
-                    ("strict",                "scores_strict.csv"),
-                    ("relaxed_trig_overlap",  "scores_relaxed_trig_overlap.csv"),
-                    ("relaxed_trig_min_dist", "scores_relaxed_trig_min_dist.csv"),
-                    ("relaxed_all",           "scores_relaxed_all.csv"),
-                    ('trig_exact_span_exact', "scores_trig_exact_span_exact.csv"),
-                    ('trig_overlap_span_exact', "scores_trig_overlap_span_exact.csv"),
-                    ('trig_exact_span_partial', "scores_trig_exact_span_partial.csv"),
-                    ('trig_overlap_span_partial', "scores_trig_overlap_span_partial.csv"),
-                    ('trig_overlap_span_overlap', 'scores_trig_overlap_span_overlap.csv')
-                    ])
+
+    score_names = [ \
+                'trigExact_labeledLabel_spanExact',
+                'trigOverlap_labeledLabel_spanExact',
+                'trigDist_labeledLabel_spanExact',
+                'trigOverlap_labeledLabel_spanOverlap',
+                'trigOverlap_labeledLabel_spanPartial']
+
+    score_files = OrderedDict([(name, f"scores_{name}.csv") for name in score_names])
 
     value_columns = [NT, NP, TP]
     event_types = C.EVENT_TYPES
@@ -121,7 +120,8 @@ def main(source_dir, destination, score_files, event_types, argument_types,
                 output[arg_name] = []
             output[arg_name].append(df_totals)
 
-        assert m == n, f"{m} vs {n}"
+        if m != n:
+            logging.warn(f"{score_name} - {m} vs {n}")
 
     for arg_name, dfs in output.items():
         df = pd.concat(dfs)
