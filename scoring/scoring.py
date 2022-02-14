@@ -333,8 +333,8 @@ def compare_entities(gold, predict, entity_scoring=C.EXACT, include_subtype=Fals
     y = 0
 
     if type_match:
-        g1, g2 = gold.token_start, gold.token_end
-        p1, p2 = predict.token_start, predict.token_end
+        g1, g2 = gold.char_start,    gold.char_end
+        p1, p2 = predict.char_start, predict.char_end
 
         indices_overlap = get_overlap_count(g1, g2, p1, p2)
 
