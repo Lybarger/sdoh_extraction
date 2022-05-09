@@ -278,6 +278,7 @@ def main(source_file, destination, config_file, model_config, spert_path, \
     # load corpus
     corpus = joblib.load(source_file)
 
+
     # apply corpus mapping
     #corpus.map_(**mapping, path=destination)
     brat_true = os.path.join(destination, "brat_true")

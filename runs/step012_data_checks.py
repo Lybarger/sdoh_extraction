@@ -32,41 +32,11 @@ from config.constants import TRAIN, DEV, TEST, QC
 from config.constants import LABELED_ARGUMENTS, REQUIRED_ARGUMENTS, EVENT_TYPES, CORPUS_FILE
 
 # Define experiment and load ingredients
-ex = Experiment('step010_brat_import')
+ex = Experiment('step012_data_checks')
 
 ID_FIELD = "id"
 SUBSET_FIELD = "subset"
 SOURCE_FIELD = "source"
-
-
-def tag_function_anno(id, annotator_position=0, subset_position=1, source_position=2):
-
-    parts = id.split(os.sep)
-
-    annotator = parts[annotator_position]
-
-    subset = parts[subset_position]
-    assert subset in [TRAIN, DEV, TEST, QC]
-
-    source = parts[source_position]
-
-    tags = set([annotator, subset, source])
-
-    return tags
-
-def tag_function(id, subset_position=0, source_position=1):
-
-    parts = id.split(os.sep)
-
-    subset = parts[subset_position]
-    assert subset in [TRAIN, DEV, TEST, QC]
-
-    source = parts[source_position]
-
-    tags = set([subset, source])
-
-    return tags
-
 
 
 @ex.config
@@ -76,17 +46,10 @@ def cfg():
 
     source = 'sdoh_challenge'
 
-    tag_func = tag_function
-    if source == 'sdoh_review':
-        source_dir = paths.sdoh_corpus_review
-        tag_func = tag_function_anno
+    source_dir = paths.brat_import
+    source_file = os.path.join(source_dir, source, CORPUS_FILE)
 
-    elif source == 'sdoh_challenge':
-        source_dir = paths.sdoh_corpus_challenge
-    else:
-        raise ValueError("invalid source")
-
-    output_dir = paths.brat_import
+    output_dir = os.path.join(paths.data_checks, source)
 
     fast_run = False
     fast_count = 100 if fast_run else None
@@ -124,25 +87,41 @@ def cfg():
 
 
 @ex.automain
-def main(destination, source_dir, fast_run, corpus_object,  \
-        fast_count, skip, brat_dir, annotator_position,
-        labeled_arguments, required_arguments, id_pattern, event_types,
-        tag_func):
+def main(destination, source_file, fast_run,  \
+        labeled_arguments, required_arguments, id_pattern, event_types):
 
-    '''
-    Events
-    '''
-    logging.info('Importing from:\t{}'.format(source_dir))
-    corpus = corpus_object()
-    corpus.import_dir(source_dir, \
-                    n = fast_count,
-                    skip = skip,
-                    tag_function = tag_func)
+    tokenizer = get_tokenizer()
 
-    # Save annotated corpus
-    logging.info('Saving corpus')
-    fn_corpus = os.path.join(destination, CORPUS_FILE)
-    joblib.dump(corpus, fn_corpus)
+    # load corpus
+    corpus = joblib.load(source_file)
+    logging.info(f"Corpus loaded")
 
+
+    # corpus.span_histogram(path=destination, entity_types=event_types)
+    # logging.info(f"Span histograms created")
+    #
+    # corpus.histogram(tokenizer=tokenizer, path=destination)
+    # logging.info(f"Histogram created")
+
+    corpus.quality_check( \
+                    path = destination,
+                    labeled_arguments = labeled_arguments,
+                    required_arguments = required_arguments,
+                    id_pattern = id_pattern)
+    logging.info(f"Quality checks performed")
+
+
+    corpus.duplicate_check(path = destination)
+
+
+
+    corpus.annotation_summary(path=destination)
+    logging.info(f"Annotation summary created")
+
+    corpus.label_summary(path=destination)
+    logging.info(f"Label summary created")
+
+    corpus.tag_summary(path=destination)
+    logging.info(f"Tag summary created")
 
     return 'Successful completion'

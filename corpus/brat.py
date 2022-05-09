@@ -208,7 +208,7 @@ def parse_textbounds(lines):
         if TEXTBOUND_RE.search(l):
 
             # Split line
-            id, type_start_end, text = l.split('\t')
+            id, type_start_end, text = l.split('\t', maxsplit=2)
 
             # Check to see if text bound spans multiple sentences
             mult_sent = len(type_start_end.split(';')) > 1

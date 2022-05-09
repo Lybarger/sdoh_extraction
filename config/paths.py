@@ -21,6 +21,7 @@ analyses = f'/home/{username}/sdoh_challenge/analyses/'
 
 
 brat_import = os.path.join(analyses, "step010_brat_import")
+data_checks = os.path.join(analyses, "step012_data_checks")
 extraction  = os.path.join(analyses, "step110_extraction")
 summary  = os.path.join(analyses, "step120_summary")
 compare_scoring_criteria = os.path.join(analyses, "step122_compare_scoring_criteria")

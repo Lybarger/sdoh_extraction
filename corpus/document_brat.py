@@ -232,7 +232,6 @@ class DocumentBrat(Document):
         get list of entities for document
         '''
 
-
         entities = tb2entities(self.tb_dict, self.attr_dict, \
                                             as_dict = as_dict,
                                             tokens = self.tokens,
@@ -365,28 +364,31 @@ class DocumentBrat(Document):
         else:
             annotator = self.id.split(os.sep)[annotator_position]
 
-        rows.extend(find_tb_not_in_events( \
+        r = find_tb_not_in_events( \
                         tb_dict = self.tb_dict,
                         event_dict = self.event_dict,
                         text = self.text,
                         id = self.id,
-                        annotator = annotator))
+                        annotator = annotator)
+        rows.extend(r)
 
-        rows.extend(find_missing_labels( \
+        r = find_missing_labels( \
                         tb_dict = self.tb_dict,
                         attr_dict = self.attr_dict,
                         text = self.text,
                         labeled_arguments = labeled_arguments,
                         id = self.id,
-                        annotator = annotator))
+                        annotator = annotator)
+        rows.extend(r)
 
-        rows.extend(find_missing_arguments( \
+        r = find_missing_arguments( \
                         tb_dict = self.tb_dict,
                         event_dict = self.event_dict,
                         text = self.text,
                         required_arguments = required_arguments,
                         id = self.id,
-                        annotator = annotator))
+                        annotator = annotator)
+        rows.extend(r)
 
         columns = ["annotator", "id", "line", "argument", "text", "message"]
         df = pd.DataFrame(rows, columns=columns)

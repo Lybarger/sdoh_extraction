@@ -254,6 +254,7 @@ class CorpusBrat(Corpus):
                             annotator_position = annotator_position,
                             labeled_arguments = labeled_arguments,
                             required_arguments = required_arguments)
+
             dfs.append(df)
 
         df = pd.concat(dfs, axis=0)
@@ -280,6 +281,7 @@ class CorpusBrat(Corpus):
                 df_temp.to_excel(f, engine='openpyxl',
                             index=False,
                             freeze_panes=(1,1))
+
 
         return df
 
@@ -496,3 +498,48 @@ class CorpusBrat(Corpus):
             # Build corpus
             assert doc.id not in self.docs_
             self.docs_[doc.id] = doc
+
+    def duplicate_check(self, path, include=None, exclude=None):
+
+        docs = self.docs(as_dict=True, include=include, exclude=exclude)
+
+        n = len(docs)
+
+        logging.info(f"Duplicate check")
+        pbar = tqdm(total=n*n, desc='Duplicate check')
+
+        rows = []
+        matches = set([])
+        counter = Counter()
+
+        for id_a, doc_a in docs.items():
+            for id_b, doc_b in docs.items():
+                text_a = doc_a.text
+                text_b = doc_b.text
+
+                diff_id = id_a != id_b
+                text_match = text_a == text_b
+                is_new = (id_b, id_a) not in matches
+
+                if diff_id and text_match and is_new:
+                    matches.add((id_a, id_b))
+                    counter[text_a] += 1
+
+                    rows.append(dict(id_a=id_a, id_b=id_b, text=text_a, len=len(text_a)))
+
+                pbar.update(1)
+        pbar.close()
+
+
+        logging.info(f"match count: {len(matches)}")
+
+        df = pd.DataFrame(rows)
+        f = os.path.join(path, "duplicate_text.csv")
+        df.to_csv(f)
+
+        df_hist = pd.DataFrame(counter.items(), columns=["text", "counts"])
+        df_hist = df_hist.sort_values('counts', ascending=False)
+        f = os.path.join(path, "duplicate_text_histogram.csv")
+        df_hist.to_csv(f)
+
+        return df
