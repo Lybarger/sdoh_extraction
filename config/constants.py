@@ -5,7 +5,13 @@ import re
 
 
 
+def ATTR_TYPE_MAP(x):
+    return f"{x}Val"
 
+LABEL_DEFINITION_FILE = "label_definition.pkl"
+
+UW = 'uw'
+MIMIC = 'mimic'
 
 '''
 Determinants
@@ -117,6 +123,10 @@ ARGUMENTS_BY_EVENT_TYPE[TOBACCO] =       ARGUMENTS_BY_EVENT_TYPE[ALCOHOL]
 ARGUMENTS_BY_EVENT_TYPE[LIVING_STATUS] = [STATUS_TIME, TYPE_LIVING, DURATION, HISTORY]
 ARGUMENTS_BY_EVENT_TYPE[EMPLOYMENT] =    [STATUS_EMPLOY, DURATION, HISTORY, TYPE]
 
+ARGUMENT2ROLE = {}
+ARGUMENT2ROLE[STATUS_TIME] = STATUS
+ARGUMENT2ROLE[STATUS_EMPLOY] = STATUS
+ARGUMENT2ROLE[TYPE_LIVING] = TYPE
 
 
 # SUBTYPES = [v for k, V in SUBTYPES_BY_ARGUMENT.items() for v in V]
@@ -197,7 +207,7 @@ SUBSET = "subset"
 
 TRIGGER = 'Trigger'
 
-TYPE = "type"
+# TYPE = "type"
 SUBTYPE = "subtype"
 ARG_1 = 'argument 1'
 ARG_2 = 'argument 2'
@@ -211,6 +221,7 @@ ENTITY_SUBTYPE = "entity_subtype"
 
 TRAIN = 'train'
 DEV = 'dev'
+EVAL = 'eval'
 TEST = 'test'
 QC = 'qc'
 CV = 'cv'
@@ -241,7 +252,8 @@ STATE_DICT = 'state_dict.pt'
 PREDICTIONS_FILE = 'predictions.pkl'
 PREDICTIONS_JSON = 'predictions.json'
 
-SUBTYPE_DEFAULT = 'no_subtype'
+SUBTYPE_DEFAULT = "None"
+
 
 
 SPACY_MODEL = 'en_core_web_sm'

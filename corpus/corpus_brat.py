@@ -17,12 +17,12 @@ import string
 # import matplotlib.pyplot as plt
 
 
-from spert_utils.spert_io import spert2doc_dict, spert_doc2brat_dicts
+from spert_utils.spert_io import spert2doc_dict, spert_doc2brat_dicts, spert_doc2brat_dicts_multi
 from config.constants import ENCODING, ARG_1, ARG_2, ROLE, TYPE, SUBTYPE, EVENT_TYPE, ENTITIES, COUNT, RELATIONS, ENTITIES, EVENTS
 from config.constants import SPACY_MODEL, SUBTYPE_DEFAULT, TRIGGER
 from corpus.corpus import Corpus
 from corpus.document_brat import DocumentBrat
-from corpus.brat import get_brat_files
+from corpus.brat import get_brat_files, get_unique_arg, get_files, TEXT_FILE_EXT
 from corpus.tokenization import get_tokenizer, map2ascii
 from utils.proj_setup import make_and_clear
 
@@ -129,6 +129,63 @@ class CorpusBrat(Corpus):
 
         pbar.close()
 
+    def import_text_dir(self, path, \
+                        n = None):
+
+        tokenizer = spacy.load(self.spacy_model)
+
+        '''
+        Import BRAT directory
+        '''
+
+        # Find text and annotation files
+
+        file_list = get_files(path, TEXT_FILE_EXT, relative=False)
+
+        # Sort files
+        file_list.sort()
+
+        logging.info(f"Importing directory: {path}")
+
+        if n is not None:
+            logging.warn("="*72)
+            logging.warn("Only process processing first {} files".format(n))
+            logging.warn("="*72)
+            file_list = file_list[:n]
+
+        logging.info(f"File count: {len(file_list)}")
+
+        pbar = tqdm(total=len(file_list), desc='Text import')
+
+        # Loop on annotated files
+        for fn_txt in file_list:
+
+            # Read text file
+            with open(fn_txt, 'r', encoding=ENCODING) as f:
+                text = f.read()
+
+            # create empty, dummy annotation file
+            ann = ''
+
+            # Use filename as ID
+            id = os.path.splitext(os.path.relpath(fn_txt, path))[0]
+
+            # create document
+            doc = self.document_class( \
+                id = id,
+                text = text,
+                ann = ann,
+                tags = None,
+                tokenizer = tokenizer
+                )
+
+            # Build corpus
+            assert doc.id not in self.docs_
+            self.docs_[doc.id] = doc
+
+            pbar.update(1)
+
+        pbar.close()
 
     def sentence_count(self, include=None, exclude=None):
 
@@ -335,7 +392,8 @@ class CorpusBrat(Corpus):
                                 event_types=None, argument_types=None):
 
         make_and_clear(path, recursive=True)
-        for doc in self.docs(include=include, exclude=exclude):
+        for i, doc in enumerate(self.docs(include=include, exclude=exclude)):
+
             doc.write_brat(path, \
                             event_types = event_types,
                             argument_types = argument_types)
@@ -391,19 +449,36 @@ class CorpusBrat(Corpus):
 
         return df
 
-    def swap_spans(self, argument_source, argument_target, include=None, exclude=None):
+    def map_roles(self, role_map, include=None, exclude=None, path=None):
+
+        counter = Counter()
+        for doc in self.docs(include=include, exclude=exclude):
+            counter += doc.map_roles(role_map)
+
+        df = counter2df(counter, columns=["Original", "New", COUNT])
+        if path is not None:
+            f = os.path.join(path, "mapped_values.csv")
+            df.to_csv(f)
+
+        return df
+
+
+
+
+    def swap_spans(self, source, target, use_role=True, include=None, exclude=None):
 
         counter = Counter()
         for doc in self.docs(include=include, exclude=exclude):
             counter += doc.swap_spans( \
-                        argument_source = argument_source,
-                        argument_target = argument_target)
+                        source = source,
+                        target = target,
+                        use_role = use_role)
 
-        logging.info(f"Swap spans")
-        for k, v in counter.items():
-            logging.info(f"{k} = {v}")
+        df = pd.DataFrame(counter.items(), columns=["field", "count"])
+        logging.info("")
+        logging.info(f"\nSwap spans: \n{source} --> {target}\n{df}\n")
 
-        return True
+        return df
 
     def span_histogram(self, path=None, filename="span_histogram.csv", entity_types=None):
 
@@ -482,6 +557,82 @@ class CorpusBrat(Corpus):
                 for attr in attr_dict.values():
                     attr.type_ = attr_type_map(attr.type_)
 
+            doc = self.document_class( \
+                id = id,
+                text = text,
+                ann = None,
+                tags = None,
+                tokenizer = tokenizer,
+                event_dict = event_dict,
+                relation_dict = relation_dict,
+                tb_dict = tb_dict,
+                attr_dict = attr_dict,
+                )
+
+            # Build corpus
+            assert doc.id not in self.docs_
+            self.docs_[doc.id] = doc
+
+    def import_spert_corpus_multi(self, \
+            path,
+            subtype_layers,
+            subtype_default,
+            event_types,
+            swapped_spans,
+            arg_role_map = None,
+            attr_type_map = None,
+            skip_dup_trig = False):
+
+
+
+        tokenizer = spacy.load(self.spacy_model)
+
+
+        spert_doc_dict = spert2doc_dict(path)
+
+        for id, spert_doc in spert_doc_dict.items():
+            text, event_dict, relation_dict, tb_dict, attr_dict = \
+                        spert_doc2brat_dicts_multi( \
+                                spert_doc = spert_doc,
+                                subtype_default = subtype_default,
+                                event_types = event_types,
+                                swapped_spans = swapped_spans)
+
+
+            if skip_dup_trig:
+                for event in event_dict.values():
+                    arguments_new = OrderedDict()
+
+                    for i, (arg_role, tb_id) in enumerate(event.arguments.items()):
+                        if (i == 0) or (arg_role.rstrip(string.digits) != event.type_):
+                            arguments_new[arg_role] = tb_id
+                    event.arguments = arguments_new
+
+
+            if arg_role_map is not None:
+                for event in event_dict.values():
+                    arguments_new = OrderedDict()
+                    for arg_role, tb_id in event.arguments.items():
+
+                        arg_role_new = arg_role
+
+                        arg_role_lookup = arg_role.rstrip(string.digits)
+
+                        if arg_role_lookup in arg_role_map:
+                            arg_role_new = arg_role_map[arg_role_lookup]
+
+                        arg_role_new = get_unique_arg(arg_role_new, arguments_new)
+                        arguments_new[arg_role_new] = tb_id
+
+                    event.arguments = arguments_new
+
+
+
+
+            if attr_type_map is not None:
+                for attr in attr_dict.values():
+                    attr.type_ = attr_type_map(attr.type_)
+
 
             doc = self.document_class( \
                 id = id,
@@ -543,3 +694,85 @@ class CorpusBrat(Corpus):
         df_hist.to_csv(f)
 
         return df
+
+    def events2spert_multi(self, \
+            include = None,
+            exclude = None,
+            event_types = None,
+            entity_types = None,
+            subtype_layers = None,
+            subtype_default = None,
+            skip_duplicate_spans = True,
+            include_doc_text = False,
+            flat = True,
+            path = None,
+            sample_count = None):
+        """
+        Get events by document
+        """
+
+        logging.warn(f"events2spert")
+
+        y = []
+        entity_counter = Counter()
+        relation_counter = Counter()
+        for i, doc in enumerate(self.docs(include=include, exclude=exclude)):
+
+            y_, ec, rc = doc.events2spert_multi( \
+                                event_types = event_types,
+                                entity_types = entity_types,
+                                subtype_layers = subtype_layers,
+                                subtype_default = subtype_default,
+                                skip_duplicate_spans = skip_duplicate_spans,
+                                include_doc_text = include_doc_text)
+            entity_counter += ec
+            relation_counter += rc
+            if flat:
+                y.extend(y_)
+            else:
+                y.append(y_)
+
+            if (sample_count is not None) and (i > sample_count):
+                break
+
+
+        if path is not None:
+            json.dump(y, open(path, 'w'))
+
+        counts = [(type, keep, count) for (type, keep), count in entity_counter.items()]
+        df = pd.DataFrame(counts, columns=["type", "keep", "count"])
+        df["frequency"] = df["count"] / df["count"].sum()
+        df = df.sort_values(["type", "keep"])
+        logging.info(f"")
+        logging.info(f"Entity counts:\n{df}")
+
+        counts = [(head, tail, keep, count) for (head, tail, keep), count in relation_counter.items()]
+        df = pd.DataFrame(counts, columns=["head", "tail", "keep", "count"])
+        df["frequency"] = df["count"] / df["count"].sum()
+        df = df.sort_values(["head", "tail", "keep"])
+        logging.info(f"")
+        logging.info(f"Relation counts:\n{df}")
+
+
+        return y
+
+    def prune_invalid_connections(self, args_by_event_type, path=None, include=None, exclude=None):
+
+        counts = Counter()
+        for doc in self.docs(include=include, exclude=exclude):
+            counts += doc.prune_invalid_connections(args_by_event_type)
+
+
+        counts = [(event_type, arg_type, v) for (event_type, arg_type), v in counts.items()]
+        df = pd.DataFrame(counts, columns=["Event", "Argument", "Count"])
+
+        logging.info(f"")
+        logging.info(f"Prune invalid connections")
+        logging.info(f"Pruned counts:\n{df}")
+        logging.info(f"")
+
+        if path is not None:
+            f = os.path.join(path, "pruned_arguments.csv")
+            df.to_csv(f)
+
+        return counts

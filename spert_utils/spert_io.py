@@ -39,7 +39,7 @@ SENT_INDEX = "sent_index"
 SENT_LABELS = "sent_labels"
 DOC_TEXT = "doc_text"
 VALUE = "value"
-
+INDEX = 'index'
 
 RELATION_DEFAULT = 'relation'
 CHAR_COUNT = 12
@@ -171,6 +171,165 @@ def doc2spert(doc, event_types=None, entity_types=None, \
     return (spert_doc, entity_counter, relation_counter)
 
 
+def doc2spert_multi( \
+            doc,
+            event_types = None,
+            entity_types = None,
+            subtype_layers = None,
+            subtype_default = "None",
+            skip_duplicate_spans = True,
+            include_doc_text = False):
+
+
+
+
+    sent_count = len(doc.tokens)
+
+    events = doc.events( \
+                    by_sent = True,
+                    event_types = event_types,
+                    entity_types = entity_types + subtype_layers)
+
+    # map events to entities
+    spans = [set([]) for _ in range(sent_count)]
+    entities = [[] for _ in range(sent_count)]
+    subtypes = [[] for _ in range(sent_count)]
+
+    entity_counter = Counter()
+
+    # iterate over each event and document
+    for event in events:
+
+        # separate entity and subtype arguments
+        entity_arguments = []
+        subtype_arguments = []
+        for argument in event.arguments:
+              if argument.type_ in entity_types:
+                  entity_arguments.append(argument)
+
+              if argument.type_ in subtype_layers:
+                  subtype_arguments.append(argument)
+              # else:
+              #     raise ValueError(f"Could not map argument: {argument.type_}")
+
+
+        # iterate over arguments in the current event
+        for i, argument in enumerate(entity_arguments):
+
+            # Double check that the token and indices match
+            tok_check = doc.tokens[argument.sent_index][argument.token_start:argument.token_end]
+            assert tok_check == argument.tokens
+
+            span =    (argument.token_start, argument.token_end)
+            entity =  (argument.type_, argument.token_start, argument.token_end)
+
+
+            # if argument.subtype is not None:
+                # logging.warn(f"doc2spert_multi - entity subtype != None: {argument.type_} -- {argument.subtype}")
+
+            # build a dictionary of subtypes for target entity span
+            subtype_dict = OrderedDict()
+
+            # iterate over target entity types for sub_types
+            for target_type in subtype_layers:
+
+                subtype_dict[target_type] = subtype_default
+
+                for arg in subtype_arguments:
+
+                    if (arg.type_ == target_type) and \
+                       ((arg.token_start, arg.token_end) == span):
+
+                        if arg.subtype is None:
+                            logging.warn(f"doc2spert_multi - argument subtype == None: {arg.type_}")
+                            subtype_dict[target_type] = subtype_default
+                        else:
+                            subtype_dict[target_type] = arg.subtype
+                        break
+
+            subtype = (subtype_dict, argument.token_start, argument.token_end)
+
+
+            if entity in entities[argument.sent_index]:
+                pass
+
+            elif skip_duplicate_spans and (span in spans[argument.sent_index]):
+                #z = [ent for ent in entities[argument.sent_index] if tuple(ent[1:]) == s]
+                #logging.warn(f"Entities with same span.\n\tid:\t{doc.id}.\n\tSkipping:\t{argument}\n\tDuplicates:\t{z}")
+                entity_counter[(argument.type_, 0)] += 1
+            else:
+
+                entities[argument.sent_index].append(entity)
+                subtypes[argument.sent_index].append(subtype)
+                spans[argument.sent_index].add(span)
+
+                entity_counter[(argument.type_, 1)] += 1
+
+
+    # get indices for entities
+    entity_indices = [OrderedDict() for _ in range(sent_count)]
+    for i, sent in enumerate(entities):
+        for j, entity in enumerate(sent):
+            entity_indices[i][entity] = j
+
+    # map events to relations
+    relations = [[] for _ in range(sent_count)]
+    relation_counter = Counter()
+    for event in events:
+        for i, argument in enumerate(event.arguments):
+            # retain trigger
+            if i == 0:
+                trigger = argument
+
+
+            # create relation
+            else:
+
+                head = (trigger.type_,  trigger.token_start,  trigger.token_end)
+                tail = (argument.type_, argument.token_start, argument.token_end)
+                ent_idx = entity_indices[trigger.sent_index]
+
+                if (trigger.sent_index == argument.sent_index) and \
+                   (head in ent_idx) and (tail in ent_idx):
+
+                    head_index = ent_idx[head]
+                    tail_index = ent_idx[tail]
+                    relations[trigger.sent_index].append((head_index, tail_index))
+                    relation_counter[(trigger.type_, argument.type_, 1)] += 1
+
+
+                else:
+                    #logging.warn(f"Trigger not an same sentence as arguemnt.\n\tid:\t{doc.id}\n Trigger:\t{trigger}\nArgument:\t{argument}")
+
+                    relation_counter[(trigger.type_, argument.type_, 0)] += 1
+
+    assert len(entities) == len(subtypes)
+    assert len(entities) == len(relations)
+    assert len(entities) == len(doc.tokens)
+    assert len(entities) == len(doc.token_offsets)
+
+    spert_doc = []
+    for i, (T, O, E, S, R) in enumerate(zip(doc.tokens, doc.token_offsets, entities, subtypes, relations)):
+        sent = {}
+        sent[ID] = doc.id
+
+        if include_doc_text and (i == 0):
+            sent[DOC_TEXT] = doc.text
+        else:
+            sent[DOC_TEXT] = None
+
+        sent[SENT_INDEX] = i
+
+        assert len(T) == len(O)
+        sent[TOKENS] = T
+        sent[OFFSETS] = O
+
+        sent[ENTITIES] = [create_entity(t, s, e) for t, s, e in E]
+        sent[SUBTYPES] = [create_entity(t, s, e) for t, s, e in S]
+        sent[RELATIONS] = [create_relation(h, t) for h, t in R]
+        spert_doc.append(sent)
+
+    return (spert_doc, entity_counter, relation_counter)
 
 
 
@@ -444,6 +603,71 @@ def get_entity_dict(spert_entities, span2tb, require_span_match=True, ignore=Non
 
     return entity_dict
 
+def get_entity_dict_multi(spert_entities, ids, ignore=None):
+
+
+
+    tb2span = OrderedDict()
+    tb2entity = OrderedDict()
+
+    entity_dict = {}
+    for i, s in enumerate(spert_entities):
+        type_ = s[TYPE]
+        start = s[START]
+        end = s[END]
+        span = (start, end)
+
+        if (ignore is not None) and (type_ in ignore):
+            pass
+        else:
+
+            tb = get_next_tb(ids)
+
+            assert tb not in tb2span
+            tb2span[tb] = span
+
+            assert tb not in tb2entity
+            tb2entity[tb] = i
+
+            new_entity = {TYPE: type_, START: start, END: end, INDEX: i, VALUE: None}
+            entity_dict[tb] = new_entity
+
+    return (entity_dict, tb2span, tb2entity)
+
+
+def get_subtype_dict_multi(subtypes, ids, subtype_default=None):
+
+    tb2span = OrderedDict()
+    tb2entity = OrderedDict()
+
+    entity_dict = {}
+    for i, s in enumerate(subtypes):
+
+        start = s[START]
+        end = s[END]
+        subtype_dict = s[TYPE]
+
+        span = (start, end)
+
+        for argument_type, subtype_label in subtype_dict.items():
+            # print(subtype_default, type(subtype_default), subtype_label, type(subtype_label), subtype_default == subtype_label)
+            if (subtype_default is not None) and (subtype_label == subtype_default):
+                pass
+            else:
+
+                tb = get_next_tb(ids)
+
+                assert tb not in tb2span
+                tb2span[tb] = span
+
+                assert tb not in tb2entity
+                tb2entity[tb] = i
+
+                new_entity = {TYPE: argument_type, START: start, END: end, INDEX: i, VALUE: subtype_label}
+                entity_dict[tb] = new_entity
+
+
+    return (entity_dict, tb2span, tb2entity)
 
 def get_relation_dict(spert_relations, entity2tb, require_span_match=True):
 
@@ -581,6 +805,22 @@ def get_attr_dict(entity_dict, ids):
 
     return attr_dict
 
+
+def get_attr_dict_multi(entity_dict, ids):
+
+
+    attr_dict = {}
+    for tb_id, entity in entity_dict.items():
+        if (VALUE in entity) and (entity[VALUE] is not None):
+            attr = Attribute( \
+                    id = get_next_attr(ids),
+                    type_ = entity[TYPE],
+                    textbound = tb_id,
+                    value = entity[VALUE])
+            attr_dict[tb_id] = attr
+
+    return attr_dict
+
 def spert_sent2brat_dicts(spert_sent, argument_pairs, text, ids):
 
     id = spert_sent[ID]
@@ -612,7 +852,197 @@ def spert_sent2brat_dicts(spert_sent, argument_pairs, text, ids):
 
     return event_dict, tb_dict, attr_dict
 
+def entity_subtype_consistency_check(entity_dict, subtype_dict):
 
+
+     # make sure there is no overlap between text bounds of entities and subtypes
+    entity_text_bounds = set(entity_dict.keys())
+    subtype_text_bounds = set(subtype_dict.keys())
+
+    overlap = entity_text_bounds.intersection(subtype_text_bounds)
+    assert len(overlap) == 0, "overlap between text bounds"
+
+    # check consistency between spans and indices
+    get_span_dict = lambda d: {v[INDEX]:(v[START], v[END]) for k, v in d.items()}
+
+    entity_span_dict = get_span_dict(entity_dict)
+    subtype_span_dict = get_span_dict(subtype_dict)
+
+    for index, span in subtype_span_dict.items():
+        assert span == entity_span_dict[index], f"{span} vs. {entity_span_dict[index]}"
+
+    return True
+
+def merge_dicts(a, b):
+    c = {}
+    for k, v in a.items():
+        assert k not in c
+        c[k] = v
+
+    for k, v in b.items():
+        assert k not in c
+        c[k] = v
+
+    return c
+
+def merge_entity_subtype_dicts(entity_dict, subtype_dict, swapped_spans):
+
+
+    # get attribute values
+    for tb_entity, entity in entity_dict.items():
+        for tb_subtype, subtype in subtype_dict.items():
+
+            # found match, get value
+            if (entity[TYPE] ==  subtype[TYPE]) and (entity[INDEX] == subtype[INDEX]):
+                if subtype[VALUE] is None:
+                   logging.warn(f"Subtype value is None: {subtype}")
+                entity[VALUE] = subtype[VALUE]
+
+    # remove unnecessary subtypes
+    tbs = list(subtype_dict.keys())
+    for tb in tbs:
+        if subtype_dict[tb][TYPE] not in swapped_spans:
+            del subtype_dict[tb]
+    #z  = sdflkj
+
+
+    return (entity_dict, subtype_dict)
+
+def get_relation_dict_multi(spert_relations, tb2entity):
+
+    relation_dict = {}
+    for relation in spert_relations:
+
+        head_idx = relation[HEAD]
+        tail_idx = relation[TAIL]
+
+        head_tb = None
+        tail_tb = None
+
+        for tb, idx in tb2entity.items():
+
+            if head_idx == idx:
+                head_tb = tb
+            if tail_idx == idx:
+                tail_tb = tb
+
+        assert head_tb is not None
+        assert tail_tb is not None
+
+        #assert (head_tb, tail_tb) not in relation_dict
+        relation_dict[(head_tb, tail_tb)] = relation
+    return relation_dict
+
+def add_subtypes_to_relations(relation_dict, entity_dict, subtype_dict, event_types):
+
+    new_relation_dict = OrderedDict()
+    for tb_subtype, entity in subtype_dict.items():
+
+        new_head_index = None
+        new_tail_index = entity[INDEX]
+
+        new_head_tb = None
+        new_tail_tb = tb_subtype
+
+
+        ''' This chunk is commented out because it was creating too many false positives
+        # look for relevant connection in relation dictionary
+        for (tb_head, tb_tail), relation in relation_dict.items():
+            # entity is associated with trigger or argument
+            # --> need to create relation with trigger
+            if new_tail_index in [relation[HEAD], relation[TAIL]]:
+                new_head_index = relation[HEAD]
+                new_head_tb = tb_head
+                break
+        '''
+
+        # look for connection through entity dictionary
+        # if (new_head_index is None) or (new_head_tb is None):
+
+        for tb_entity, entity in entity_dict.items():
+
+            # entity is associated with entity
+            # --> need to create relation with entity
+            if (entity[TYPE] in event_types) and \
+               (new_tail_index in [entity[INDEX]]):
+
+                new_head_index = entity[INDEX]
+                new_head_tb = tb_entity
+
+                break
+
+        # only create relation if there is a valid connection
+        # assert new_head_index is not None
+        # assert new_head_tb is not None
+
+        if (new_head_index is not None) and (new_head_tb is not None):
+
+            new_relation = {TYPE: RELATION_DEFAULT, HEAD: new_head_index, TAIL: new_tail_index}
+            new_span = (new_head_tb, new_tail_tb)
+            new_relation_dict[new_span] = new_relation
+
+    # incorporate new relations and to relation dictionary
+    for span, relation in new_relation_dict.items():
+        assert span not in relation_dict
+        relation_dict[span] = relation
+
+    return relation_dict
+
+def spert_sent2brat_dicts_multi(spert_sent, text, ids, subtype_default, event_types, swapped_spans):
+
+    id = spert_sent[ID]
+    tokens = spert_sent[TOKENS]
+    offsets = spert_sent[OFFSETS]
+    entities = spert_sent[ENTITIES]
+    subtypes = spert_sent[SUBTYPES]
+    relations = spert_sent[RELATIONS]
+
+    assert len(entities) == len(subtypes)
+    assert [d[START] for d in entities] == [d[START] for d in subtypes]
+    assert [d[END]   for d in entities] == [d[END]   for d in subtypes]
+
+    # get entities
+    entity_dict, entity_tb2span, entity_tb2entity = get_entity_dict_multi( \
+                                        spert_entities = entities,
+                                        ids = ids,
+                                        ignore = None)
+
+    # get subtypes as entities
+    subtype_dict, subtype_tb2span, subtype_tb2entity = get_subtype_dict_multi( \
+                                        subtypes = subtypes,
+                                        ids = ids,
+                                        subtype_default = subtype_default)
+
+    # check entity and subtype consistency
+    entity_subtype_consistency_check(entity_dict, subtype_dict)
+
+    tb2span =   merge_dicts(entity_tb2span,   subtype_tb2span)
+    tb2entity = merge_dicts(entity_tb2entity, subtype_tb2entity)
+
+
+    entity_dict, subtype_dict = merge_entity_subtype_dicts(entity_dict, subtype_dict, swapped_spans)
+
+    entity_dict_merged = merge_dicts(entity_dict, subtype_dict)
+
+    # get relations for entities (not subtypes)
+    relation_dict = get_relation_dict_multi( \
+                                    spert_relations = relations,
+                                    tb2entity = entity_tb2entity)
+
+    # add subtype entities to relation dict
+    relation_dict = add_subtypes_to_relations( \
+                                    relation_dict = relation_dict,
+                                    entity_dict = entity_dict,
+                                    subtype_dict = subtype_dict,
+                                    event_types = event_types)
+
+    event_dict = get_event_dict(relation_dict, entity_dict_merged, ids)
+    tb_dict = get_tb_dict(entity_dict_merged, offsets=offsets, text=text)
+    # attr_dict = get_attr_dict(entity_dict_merged, ids)
+    attr_dict = get_attr_dict_multi(entity_dict_merged, ids)
+
+
+    return event_dict, tb_dict, attr_dict
 
 def spert_doc2brat_dicts(spert_doc, argument_pairs):
 
@@ -651,6 +1081,61 @@ def spert_doc2brat_dicts(spert_doc, argument_pairs):
 
         for k, v in attr_dict_sent.items():
             assert k not in attr_dict
+            attr_dict[k] = v
+
+
+    return (text, event_dict, relation_dict, tb_dict, attr_dict)
+
+def spert_doc2brat_dicts_multi(spert_doc, subtype_default, event_types, swapped_spans):
+
+
+    # make sure not empty
+    assert len(spert_doc) > 0
+
+    # get text
+    text = spert_doc[0][DOC_TEXT]
+    assert text is not None
+    assert len(text) > 0
+
+
+    event_dict = {}
+    relation_dict = {}
+    tb_dict = {}
+    attr_dict = {}
+
+
+
+    ids = {'T':0, 'E':0, 'A':0}
+
+    counter = Counter()
+    for i, spert_sent in enumerate(spert_doc):
+        assert spert_sent[SENT_INDEX] == i
+
+
+        event_dict_sent, tb_dict_sent, attr_dict_sent = \
+                    spert_sent2brat_dicts_multi( \
+                        spert_sent,
+                        text,
+                        ids,
+                        subtype_default = subtype_default,
+                        event_types = event_types,
+                        swapped_spans = swapped_spans)
+
+        for event_id, event in event_dict_sent.items():
+            assert event_id not in event_dict
+            for arg_type, tb_id in event.arguments.items():
+                assert tb_id not in tb_dict
+            event_dict[event_id] = event
+
+        for k, v in tb_dict_sent.items():
+            assert k not in tb_dict
+            tb_dict[k] = v
+
+        for k, v in attr_dict_sent.items():
+            assert k not in attr_dict
+            # if (v.type_ in ["Size", "Size_Trend"]) and \
+            #         (v.value not in ["new", "current", "decreasing", "increasing", "past", "no_change", "disappear"]):
+            #     counter[v.value] += 1
             attr_dict[k] = v
 
 

@@ -29,7 +29,7 @@ from corpus.tokenization import get_tokenizer
 
 import config.paths as paths
 from config.constants import TRAIN, DEV, TEST, QC
-from config.constants import LABELED_ARGUMENTS, REQUIRED_ARGUMENTS, EVENT_TYPES, CORPUS_FILE
+from config.constants import CORPUS_FILE
 
 # Define experiment and load ingredients
 ex = Experiment('step010_brat_import')
@@ -39,20 +39,20 @@ SUBSET_FIELD = "subset"
 SOURCE_FIELD = "source"
 
 
-def tag_function_anno(id, annotator_position=0, subset_position=1, source_position=2):
-
-    parts = id.split(os.sep)
-
-    annotator = parts[annotator_position]
-
-    subset = parts[subset_position]
-    assert subset in [TRAIN, DEV, TEST, QC]
-
-    source = parts[source_position]
-
-    tags = set([annotator, subset, source])
-
-    return tags
+# def tag_function_anno(id, annotator_position=0, subset_position=1, source_position=2):
+#
+#     parts = id.split(os.sep)
+#
+#     annotator = parts[annotator_position]
+#
+#     subset = parts[subset_position]
+#     assert subset in [TRAIN, DEV, TEST, QC]
+#
+#     source = parts[source_position]
+#
+#     tags = set([annotator, subset, source])
+#
+#     return tags
 
 def tag_function(id, subset_position=0, source_position=1):
 
@@ -72,44 +72,34 @@ def tag_function(id, subset_position=0, source_position=1):
 @ex.config
 def cfg():
 
+    # source_name: str, name for saved corpus
+    source_name = 'sdoh_challenge'
 
+    # source_dir: str, directory with BRAT annotations
+    source_dir = paths.sdoh_corpus_challenge
 
-    source = 'sdoh_challenge'
-
+    # tag_func: function for assigning tags (e.g. train, dev. test) to documents
     tag_func = tag_function
-    if source == 'sdoh_review':
-        source_dir = paths.sdoh_corpus_review
-        tag_func = tag_function_anno
 
-    elif source == 'sdoh_challenge':
-        source_dir = paths.sdoh_corpus_challenge
-    else:
-        raise ValueError("invalid source")
-
-    output_dir = paths.brat_import
-
+    # fast_run: bool, if True, only import a subset of corpus for troubleshooting
     fast_run = False
+
+    # fast_count: int, number of samples to import if fast_run==True. None imports all samples
     fast_count = 100 if fast_run else None
-    annotator_position = 0
-    labeled_arguments = LABELED_ARGUMENTS
-    required_arguments = REQUIRED_ARGUMENTS
-    event_types = EVENT_TYPES
 
-    id_pattern = None
-
+    # skip: list, list of files to exclude from import
     skip = None
 
+    # corpus_object: obj, Corpus object for storing imported BRAT files
     corpus_object = CorpusBrat
 
-    brat_dir = "brat"
+    # output_dir: str, output directory for all BRAT imports
+    output_dir = paths.brat_import
 
-    '''
-    Paths
-    '''
+    # destination: str, output directory for imported corpus
+    destination = os.path.join(output_dir,  source_name)
     if fast_run:
-        destination = os.path.join(output_dir,  source+'_FAST_RUN')
-    else:
-        destination = os.path.join(output_dir,  source)
+        destination += '_FAST_RUN'
 
     # Scratch directory
     make_and_clear(destination)
@@ -121,13 +111,8 @@ def cfg():
     ex.observers.append(cust_observ)
 
 
-
-
 @ex.automain
-def main(destination, source_dir, fast_run, corpus_object,  \
-        fast_count, skip, brat_dir, annotator_position,
-        labeled_arguments, required_arguments, id_pattern, event_types,
-        tag_func):
+def main(destination, source_dir, corpus_object, fast_count, skip, tag_func):
 
     '''
     Events
@@ -143,6 +128,5 @@ def main(destination, source_dir, fast_run, corpus_object,  \
     logging.info('Saving corpus')
     fn_corpus = os.path.join(destination, CORPUS_FILE)
     joblib.dump(corpus, fn_corpus)
-
 
     return 'Successful completion'

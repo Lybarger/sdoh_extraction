@@ -6,16 +6,17 @@ import logging
 import copy
 import pandas as pd
 import os
+import string
 
 from corpus.tokenization import get_tokenizer, map2ascii, remove_white_space_at_ends
 from config.constants import EVENT, RELATION, TEXTBOUND, ATTRIBUTE, ENTITIES, RELATIONS, EVENTS, ARGUMENTS, SUBTYPE_DEFAULT, TRIGGER
 from corpus.document import Document
-from corpus.brat import get_annotations, write_txt, write_ann, get_next_index, Textbound, Attribute
+from corpus.brat import get_annotations, write_txt, write_ann, get_next_index, Textbound, Attribute, get_unique_arg
 from corpus.labels import tb2entities, tb2relations, brat2events
 from corpus.brat import Attribute, get_max_id
 
 
-from spert_utils.spert_io import doc2spert
+from spert_utils.spert_io import doc2spert, doc2spert_multi
 
 #from spert_utils.convert_brat import
 
@@ -300,6 +301,25 @@ class DocumentBrat(Document):
 
         return (spert_doc, entity_counter, relation_counter)
 
+    def events2spert_multi(self, \
+                    event_types,
+                    entity_types,
+                    subtype_layers,
+                    subtype_default,
+                    skip_duplicate_spans = True,
+                    include_doc_text = False):
+
+        spert_doc, entity_counter, relation_counter = doc2spert_multi( \
+                            doc = self,
+                            event_types = event_types,
+                            entity_types = entity_types,
+                            subtype_layers = subtype_layers,
+                            subtype_default = subtype_default,
+                            skip_duplicate_spans = skip_duplicate_spans,
+                            include_doc_text = include_doc_text)
+
+        return (spert_doc, entity_counter, relation_counter)
+
     def y(self):
         y = OrderedDict()
         y[ENTITIES] = self.entities()
@@ -552,9 +572,40 @@ class DocumentBrat(Document):
 
         return counter
 
-    def swap_spans(self, argument_source, argument_target):
+    def map_roles(self, role_map):
         '''
-        Replace span for argument_source with span from argument_target
+        Map document argument types, span types, and span labels
+        '''
+
+        counter = Counter()
+
+        # iterate over events in document
+        for event_id, event in self.event_dict.items():
+
+            # initialize new argument dictionary
+            new_arguments = OrderedDict()
+
+            # iterate over arguments
+            for role, tb_id in event.arguments.items():
+
+                # update role name, if applicable
+                role_lookup = role.rstrip(string.digits)
+                if role_lookup in role_map:
+                    role = role_map[role_lookup]
+                    role = get_unique_arg(role, new_arguments)
+                    counter[(role_lookup, role)] += 1
+
+                new_arguments[role] = tb_id
+
+            # update event arguments
+            event.arguments = new_arguments
+
+        return counter
+
+
+    def swap_spans(self, source, target, use_role=True):
+        '''
+        Replace span for argument source with span from argument target
         '''
 
         # iterate over events
@@ -569,26 +620,49 @@ class DocumentBrat(Document):
 
             # Replace argument target with trigger, if applicable
             trigger_type, _ = event.get_trigger()
-            if argument_target == TRIGGER:
-                argument_target_temp = trigger_type
+            if target == TRIGGER:
+                target_temp = trigger_type
             else:
-                argument_target_temp = argument_target
+                target_temp = target
 
-            # determine if both source and target are present
-            has_source = argument_source in event.arguments
-            has_target = argument_target_temp in event.arguments
+            source_tb_id = None
+            target_tb_id = None
+            role = None
 
-            # replace span if both source and target present
-            if has_source and has_target:
+            # source and target are the role names in the event
+            if use_role:
 
                 # get text bound ids
-                source_tb_id = event.arguments[argument_source]
-                target_tb_id = event.arguments[argument_target_temp]
+                if source in event.arguments:
+                    source_tb_id = event.arguments[source]
+
+                if target_temp in event.arguments:
+                    target_tb_id = event.arguments[target_temp]
+
+                role = source
+
+            # source and target are the argument names in the event
+            else:
+
+                # need to get add the textbound types (argument names)
+                for role_name, tb_id in event.arguments.items():
+                    tb = self.tb_dict[tb_id]
+
+                    if source == tb.type_:
+                        source_tb_id = tb_id
+                        role = role_name
+
+                    if target_temp == tb.type_:
+                        target_tb_id = tb_id
+
+            # replace span if both source and target present
+            if (source_tb_id is not None) and (target_tb_id is not None):
+
+                assert role is not None
 
                 # get text bounds (object)
                 source_tb = self.tb_dict[source_tb_id]
                 target_tb = self.tb_dict[target_tb_id]
-
 
                 new_tb_id = f'T{tb_index}'
                 tb_index += 1
@@ -602,7 +676,7 @@ class DocumentBrat(Document):
                                 tokens = target_tb.tokens,
                                 )
                 self.tb_dict[new_tb_id] = new_tb
-                event.arguments[argument_source] = new_tb_id
+                event.arguments[role] = new_tb_id
 
                 counter['new_tb'] += 1
 
@@ -623,7 +697,6 @@ class DocumentBrat(Document):
                     self.attr_dict[new_tb_id] = new_attr
 
                     counter['new_attr'] += 1
-
 
         for tb_id in tb_to_remove:
             del self.tb_dict[tb_id]
@@ -683,6 +756,44 @@ class DocumentBrat(Document):
 
         return counts
 
+    def prune_invalid_connections(self, args_by_event_type):
+
+        event_ids = list(self.event_dict.keys())
+        for id in event_ids:
+            event = self.event_dict[id]
+            if event.type_ not in args_by_event_type:
+                del self.event_dict[id]
+
+        # counts = Counter()
+        # for _, event in self.event_dict.items():
+        #
+        #     arg_types = list(event.arguments.keys())[1:]
+        #
+        #     for arg_type in arg_types:
+        #
+        #         arg_type_strip = arg_type.rstrip(string.digits)
+        #
+        #         if arg_type_strip not in args_by_event_type[event.type_]:
+        #             counts[(event.type_, arg_type_strip)] += 1
+        #             del event.arguments[arg_type]
+
+        counts = Counter()
+        for _, event in self.event_dict.items():
+
+            # find invalid roles
+            to_remove = []
+            for i, (role, tb_id) in enumerate(event.arguments.items()):
+
+                if i > 0:
+                    tb = self.tb_dict[tb_id]
+                    if tb.type_ not in args_by_event_type[event.type_]:
+                        to_remove.append(role)
+
+            # remove invalid roles
+            for role in to_remove:
+                del event.arguments[role]
+
+        return counts
 
 
 
