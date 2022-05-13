@@ -28,5 +28,8 @@ extraction  = os.path.join(analyses, "step110_extraction")
 extraction_multi  = os.path.join(analyses, "step111_multi_spert_train")
 multi_spert_eval = os.path.join(analyses,  "step112_multi_spert_infer")
 
+multitask_train = os.path.join(analyses, "step121_multitask_train")
+multitask_infer = os.path.join(analyses, "step122_multitask_infer")
+
 summary  = os.path.join(analyses, "step120_summary")
 compare_scoring_criteria = os.path.join(analyses, "step122_compare_scoring_criteria")
