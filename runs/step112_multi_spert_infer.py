@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import shutil
 
 
-from brat_scoring.scoring import score_docs
+from brat_scoring.scoring import score_docs, micro_average_subtypes
 
 
 from utils.custom_observer import CustomObserver
@@ -31,7 +31,7 @@ from utils.proj_setup import make_and_clear
 
 import config.paths as paths
 
-
+from utils.misc import get_include
 from spert_utils.config_setup import dict_to_config_file, get_prediction_file
 from spert_utils.spert_io import merge_spert_files
 
@@ -47,6 +47,8 @@ from corpus.corpus_brat import CorpusBrat
 
 # Define experiment and load ingredients
 ex = Experiment('step112_multi_spert_eval')
+
+
 
 
 @ex.config
@@ -98,11 +100,17 @@ def cfg():
         #   save_brat == False for most experimentation to avoid many small files
     save_brat = False
 
-    # eval_subset: str indicating the validation subset
-    #   likely eval_subset == "dev" or eval_subset == "test"
-    eval_subset = C.DEV
-    source_subset = C.UW
-    subset = [eval_subset, source_subset]
+    # eval_subset: str indicating the training subset
+    #   likely train_subset == "train"
+    eval_subset = None
+
+    # eval_source: str indicating the training source
+    #   eg "mimic", "uw"
+    eval_source = None
+
+    # combine source and subset
+    eval_include = get_include([eval_subset, eval_source])
+
     # eval_subset = None
 
     '''
@@ -111,9 +119,15 @@ def cfg():
     # Scoring:
     scoring = OrderedDict()
     scoring["trig_exact_span_exact"] =     dict(score_trig=C.EXACT,     score_span=C.EXACT,   score_labeled=C.LABEL)
+
     scoring["trig_overlap_span_exact"] =   dict(score_trig=C.OVERLAP,   score_span=C.EXACT,   score_labeled=C.LABEL)
-    scoring["trig_min_dist_span_exact"] =  dict(score_trig=C.MIN_DIST,  score_span=C.EXACT,   score_labeled=C.LABEL)
     scoring["trig_overlap_span_overlap"] = dict(score_trig=C.OVERLAP,   score_span=C.OVERLAP, score_labeled=C.LABEL)
+    scoring["trig_overlap_span_partial"] = dict(score_trig=C.OVERLAP,   score_span=C.PARTIAL, score_labeled=C.LABEL)
+
+    scoring["trig_min_dist_span_exact"] =    dict(score_trig=C.MIN_DIST,  score_span=C.EXACT,     score_labeled=C.LABEL)
+    scoring["trig_min_dist_span_overlap"] =  dict(score_trig=C.MIN_DIST,  score_span=C.OVERLAP,   score_labeled=C.LABEL)
+    scoring["trig_min_dist_span_partial"] =  dict(score_trig=C.MIN_DIST,  score_span=C.PARTIAL,   score_labeled=C.LABEL)
+
 
     """
     SpERT
@@ -145,6 +159,7 @@ def cfg():
     store_examples = True
     sampling_processes = 4
     max_pairs = 1000
+    no_overlapping = False
 
     model_config = OrderedDict()
     model_config["model_path"] = model_path
@@ -158,6 +173,7 @@ def cfg():
     model_config["sampling_processes"] = sampling_processes
     model_config["max_pairs"] = max_pairs
     model_config["log_path"] = log_path
+    model_config["no_overlapping"] = no_overlapping
     model_config["device"] = device
 
 
@@ -174,7 +190,7 @@ def cfg():
 
 @ex.automain
 def main(mode, source_file, source_dir, destination, config_path, model_config, spert_path, fast_count, \
-        dataset_path, subset, scoring, save_brat):
+        dataset_path, eval_include, scoring, save_brat):
 
 
     if mode == C.EVAL:
@@ -215,7 +231,7 @@ def main(mode, source_file, source_dir, destination, config_path, model_config, 
 
     # create formatted data
     corpus.events2spert_multi( \
-                include = subset,
+                include = eval_include,
                 entity_types = label_definition["entity_types"],
                 subtype_layers = label_definition["subtype_layers"],
                 subtype_default = label_definition["subtype_default"],
@@ -223,7 +239,8 @@ def main(mode, source_file, source_dir, destination, config_path, model_config, 
                 sample_count = fast_count,
                 include_doc_text = True)
 
-    get_dataset_stats(dataset_path=dataset_path, dest_path=destination, name=subset)
+    include_name = '-'.join(list(include))
+    get_dataset_stats(dataset_path=dataset_path, dest_path=destination, name=eval_include)
 
 
     # create configuration file
@@ -284,11 +301,11 @@ def main(mode, source_file, source_dir, destination, config_path, model_config, 
         predict_docs = predict_corpus.docs(as_dict=True)
 
         gold_corpus = joblib.load(source_file)
-        gold_docs = gold_corpus.docs(include=subset, as_dict=True)
+        gold_docs = gold_corpus.docs(include=eval_include, as_dict=True)
 
         for description, score_def in scoring.items():
 
-            score_docs( \
+            df = score_docs( \
                 gold_docs = gold_docs,
                 predict_docs = predict_docs,
                 labeled_args = label_definition["score_labeled_args"], \
@@ -298,6 +315,10 @@ def main(mode, source_file, source_dir, destination, config_path, model_config, 
                 output_path = destination,
                 description = description,
                 argument_types = label_definition["score_argument_types"])
+
+            df = micro_average_subtypes(df)
+            f = os.path.join(destination, f"scores_{description}_micro.csv")
+            df = df.to_csv(f, index=False)
 
     elif mode == C.PREDICT:
 

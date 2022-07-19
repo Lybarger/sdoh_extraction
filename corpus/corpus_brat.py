@@ -398,15 +398,7 @@ class CorpusBrat(Corpus):
                             event_types = event_types,
                             argument_types = argument_types)
 
-    def tag_summary(self, path, include=None, exclude=None):
 
-        summary = []
-        for doc in self.docs(include=include, exclude=exclude):
-            summary.append((doc.id,doc.tags))
-
-        df = pd.DataFrame(summary,columns=["id", "tags"])
-        f = os.path.join(path, "tag_summary.csv")
-        df.to_csv(f, index=False)
 
     def snap_textbounds(self, include=None, exclude=None):
         for doc in self.docs(include=include, exclude=exclude):

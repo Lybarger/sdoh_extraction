@@ -512,3 +512,28 @@ class Corpus:
                     ValueError("invalid annotation type: {}".format(anno_type))
 
         return sampled_docs
+
+    def tag_summary(self, path, include=None, exclude=None):
+
+        summary = []
+        counter_individual = Counter()
+        counter_joint = Counter()
+
+        for doc in self.docs(include=include, exclude=exclude):
+            summary.append((doc.id, doc.tags))
+            counter_joint[tuple(doc.tags)] += 1
+            for t in doc.tags:
+                counter_individual[t] += 1
+
+        df = pd.DataFrame(summary,columns=["id", "tags"])
+        f = os.path.join(path, "tag_by_doc.csv")
+        df.to_csv(f, index=False)
+
+
+        df = pd.DataFrame(counter_joint.items(), columns=["tag", "count"])
+        f = os.path.join(path,"tag_summary_joint.csv")
+        df.to_csv(f,index=False)
+
+        df = pd.DataFrame(counter_individual.items(), columns=["tag", "count"])
+        f = os.path.join(path,"tag_summary_individual.csv")
+        df.to_csv(f,index=False)

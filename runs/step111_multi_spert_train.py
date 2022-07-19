@@ -28,7 +28,7 @@ from brat_scoring.scoring import score_docs
 
 from utils.custom_observer import CustomObserver
 from utils.proj_setup import make_and_clear
-
+from utils.misc import get_include
 import config.paths as paths
 
 
@@ -61,13 +61,8 @@ def cfg():
     # source_file: str defining path to source_name corpus
     source_file = os.path.join(paths.brat_import, source_name, C.CORPUS_FILE)
 
-    # mode: str defining mode from {"train"}
-    mode = C.TRAIN
-
     # subdir: str defining subdirectory for run output
-    subdir = None
-    if subdir is None:
-        subdir = mode
+    subdir = "default"
 
     # fast_run: bool indicating whether a full or fast run should be performed
     #   fast_run == True for basic trouble shooting
@@ -78,7 +73,7 @@ def cfg():
     fast_count = 20 if fast_run else None
 
     # output_dir: str defining root output path
-    output_dir = paths.extraction_multi
+    output_dir = paths.multi_spert_train
 
     # destination: str defining output path
     destination = os.path.join(output_dir, subdir, description)
@@ -92,12 +87,25 @@ def cfg():
 
     # train_subset: str indicating the training subset
     #   likely train_subset == "train"
-    train_subset = C.TRAIN
+    train_subset = None
 
     # valid_subset: str indicating the validation subset
     #   likely valid_subset == "dev" or valid_subset == "test"
-    valid_subset = C.DEV
+    valid_subset = None
     # valid_subset = train_subset
+
+    # train_source: str indicating the training source
+    #   eg "mimic", "uw"
+    train_source = None
+
+    # valid_source: str indicating the validation source
+    #   eg "mimic", "uw"
+    valid_source = None
+
+    # combine source and subset
+    train_include = get_include([train_subset, train_source])
+    valid_include = get_include([valid_subset, valid_source])
+
 
     '''
     Label definition
@@ -247,6 +255,7 @@ def cfg():
     sampling_processes = 4
     max_pairs = 1000
     final_eval = True
+    no_overlapping = True
     log_path = os.path.join(destination, 'log')
     save_path = os.path.join(destination,  'save')
 
@@ -301,6 +310,7 @@ def cfg():
     model_config["include_adjacent"] = include_adjacent
     model_config["include_word_piece_task"] = include_word_piece_task
     model_config["concat_word_piece_logits"] = concat_word_piece_logits
+    model_config["no_overlapping"] = no_overlapping
     model_config["device"] = device
 
 
@@ -318,14 +328,8 @@ def cfg():
 @ex.automain
 def main(source_file, destination, config_path, model_config, spert_path, \
         spert_types_config, fast_count,
-        train_path, train_subset, valid_path, valid_subset,
-        types_path,
-        # argument_source, argument_target, default_subtype_value,
-
-        scoring, save_brat, label_definition):
-
-
-
+        train_path, train_include, valid_path, valid_include,
+        types_path, scoring, save_brat, label_definition):
 
     '''
     Prepare spert inputs
@@ -342,14 +346,13 @@ def main(source_file, destination, config_path, model_config, spert_path, \
                         target = C.TRIGGER,
                         use_role = False)
 
-    if valid_subset == train_subset:
-
+    if valid_include == train_include:
         logging.warn('='*200 + f"\nValidation set and train set are equivalent\n" + '='*200)
 
     # create formatted data
-    for path, subset, sample_count in [(train_path, train_subset, fast_count), (valid_path, valid_subset, fast_count)]:
+    for path, include, sample_count in [(train_path, train_include, fast_count), (valid_path, valid_include, fast_count)]:
         corpus.events2spert_multi( \
-                    include = subset,
+                    include = include,
                     entity_types = label_definition["entity_types"],
                     subtype_layers = label_definition["subtype_layers"],
                     subtype_default = label_definition["subtype_default"],
@@ -357,7 +360,8 @@ def main(source_file, destination, config_path, model_config, spert_path, \
                     sample_count = sample_count,
                     include_doc_text = True)
 
-        get_dataset_stats(dataset_path=path, dest_path=destination, name=subset)
+        include_name = '-'.join(list(include))
+        get_dataset_stats(dataset_path=path, dest_path=destination, name=include_name)
 
     # create spert types file
     create_event_types_path(**spert_types_config, path=types_path)
@@ -408,7 +412,7 @@ def main(source_file, destination, config_path, model_config, spert_path, \
 
 
     gold_corpus = joblib.load(source_file)
-    gold_docs = gold_corpus.docs(include=valid_subset, as_dict=True)
+    gold_docs = gold_corpus.docs(include=valid_include, as_dict=True)
 
     predict_corpus = CorpusBrat()
     predict_corpus.import_spert_corpus_multi( \

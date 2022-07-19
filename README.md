@@ -33,7 +33,7 @@ python3 runs/step112_multi_spert_infer.py with fast_run=False description='sdoh_
 
 
 #### Prediction
-Below is example usage for applying a trained extractor to a directory of text (\*.txt) files:
+Below is example usage for applying a trained extractor to a directory of text (\*.txt) files. NOTE that the modell has only been trained and evaluated on social history section text. The directory of text files should be limited to social history section text, to avoid false positives.
 ```
 python3 runs/step112_multi_spert_infer.py with fast_run=False description='sdoh_challenge_predict' device=1 mode='predict' source_dir='/path../dir_with_text_files/' subset=None model_path="/path../analyses/step111_multi_spert_train/train/sdoh_challenge_e10_d02/save"
 ```

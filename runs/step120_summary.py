@@ -45,18 +45,15 @@ ex = Experiment('step120_summary')
 @ex.config
 def cfg():
 
-    source = "sdoh"
+    dirname = 'subtask_a'
 
-    dirname = 'train'
-
-    source_dir = os.path.join(paths.extraction, dirname)
+    source_dir = os.path.join(paths.multi_spert_train, dirname)
     destination = os.path.join(paths.summary,   dirname)
 
     score_files = OrderedDict([ \
-                    ("strict",                "scores_strict.csv"),
-                    ("relaxed_trig_overlap",  "scores_relaxed_trig_overlap.csv"),
-                    ("relaxed_trig_min_dist", "scores_relaxed_trig_min_dist.csv"),
-                    ("relaxed_all",           "scores_relaxed_all.csv"),
+                    ("trig_exact_span_exact",     "scores_trig_exact_span_exact.csv"),
+                    ("trig_overlap_span_exact",   "scores_trig_overlap_span_exact.csv"),
+                    ("trig_overlap_span_overlap", "scores_trig_overlap_span_overlap.csv"),
                     ])
 
     value_columns = [NT, NP, TP]
@@ -66,12 +63,9 @@ def cfg():
     span_only_arguments = C.SPAN_ONLY_ARGUMENTS
     argument_types = [trigger] + label_arguments + span_only_arguments
 
-
     #params = ["epochs", "prop_drop", "lr", "subtype_classification"]
 
     #target_run = "e10_lr55_d02_bs10_ss1_ctL_ps___pd__"
-
-
 
     # Scratch directory
     make_and_clear(destination)

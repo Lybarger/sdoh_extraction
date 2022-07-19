@@ -25,7 +25,7 @@ data_checks = os.path.join(analyses, "step012_data_checks")
 
 tokenization_checks = os.path.join(analyses, "step013_tokenization_checks")
 extraction  = os.path.join(analyses, "step110_extraction")
-extraction_multi  = os.path.join(analyses, "step111_multi_spert_train")
+multi_spert_train  = os.path.join(analyses, "step111_multi_spert_train")
 multi_spert_eval = os.path.join(analyses,  "step112_multi_spert_infer")
 
 multitask_train = os.path.join(analyses, "step121_multitask_train")

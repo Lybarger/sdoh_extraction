@@ -28,7 +28,7 @@ from utils.proj_setup import make_and_clear
 from corpus.tokenization import get_tokenizer
 
 import config.paths as paths
-from config.constants import TRAIN, DEV, TEST, QC
+from config.constants import TRAIN, DEV, TEST, QC, TRAIN_DEV
 from config.constants import CORPUS_FILE
 
 # Define experiment and load ingredients
@@ -64,6 +64,11 @@ def tag_function(id, subset_position=0, source_position=1):
     source = parts[source_position]
 
     tags = set([subset, source])
+
+    if (TRAIN in tags) or (DEV in tags):
+        tags.add(TRAIN_DEV)
+
+
 
     return tags
 
@@ -123,6 +128,9 @@ def main(destination, source_dir, corpus_object, fast_count, skip, tag_func):
                     n = fast_count,
                     skip = skip,
                     tag_function = tag_func)
+
+    corpus.tag_summary(destination)
+
 
     # Save annotated corpus
     logging.info('Saving corpus')
