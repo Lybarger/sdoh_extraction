@@ -61,9 +61,9 @@ def cfg():
     trigger = C.TRIGGER
     labeled_arguments = C.LABELED_ARGUMENTS
     span_only_arguments = C.SPAN_ONLY_ARGUMENTS
-    argument_types = [trigger] + label_arguments + span_only_arguments
+    argument_types = [trigger] + labeled_arguments + span_only_arguments
 
-    #params = ["epochs", "prop_drop", "lr", "subtype_classification"]
+    params = ["epochs", "prop_drop"]
 
     #target_run = "e10_lr55_d02_bs10_ss1_ctL_ps___pd__"
 
@@ -98,8 +98,9 @@ def cfg():
 
 
 @ex.automain
-def main(source_dir, destination, score_files, event_types, argument_types,
-    trigger, labeled_arguments, span_only_arguments):
+def main(source_dir, destination, score_files, \
+    event_types, argument_types,
+    trigger, labeled_arguments, span_only_arguments, params):
 
 
     # get all sub directories
@@ -133,36 +134,46 @@ def main(source_dir, destination, score_files, event_types, argument_types,
 
             df = pd.read_csv(target_file)
 
-
-
-            df = df[df["event"].isin(event_types)]
-            df = df[df["argument"].isin(argument_types)]
+            # df = df[df["event"].isin(event_types)]
+            # df = df[df["argument"].isin(argument_types)]
             df["subtype"] = df["subtype"].fillna(value='na')
 
 
             dirname = result_dir.name
-            df["run"] = dirname
+            df.insert(0, "run", dirname)
 
 
             dfs.append(df)
+
         df = pd.concat(dfs)
-        pt = pd.pivot_table(df, values=["F1"], index=["event", "argument", "subtype"], columns=["run"])
 
-        pt = pt.fillna(value=0)
-        pt.columns = pt.columns.droplevel()
+        logging.info(f"Score file: {name}")
 
-        pt = pt.reset_index()
+        logging.info(f"Scores, all: \n{df}")
+        f = os.path.join(destination, "scores_all.csv")
+        df.to_csv(f, index=False)
 
-        pt["rank"] = pt.apply(ranker, axis=1)
-        pt = pt.sort_values("rank")
-        del pt["rank"]
+        df_overall = df[df[C.EVENT] == C.OVERALL]
+        df_overall = df_overall.sort_values(C.F1, ascending=False)
+        logging.info(f"Scores, overall: \n{df_overall}")
+        f = os.path.join(destination, "scores_overall.csv")
+        df_overall.to_csv(f, index=False)
 
-        f = os.path.join(destination, score_file)
-        pt.to_csv(f)
+        # pt = pd.pivot_table(df, values=["F1"], index=["event", "argument", "subtype"], columns=["run"])
+        #
+        # pt = pt.fillna(value=0)
+        # pt.columns = pt.columns.droplevel()
+        #
+        # pt = pt.reset_index()
+        #
+        # pt["rank"] = pt.apply(ranker, axis=1)
+        # pt = pt.sort_values("rank")
+        # del pt["rank"]
+        #
+        # f = os.path.join(destination, score_file)
+        # pt.to_csv(f)
 
-
-
-    df = summarize_event_csvs(score_file_dict)
-    print(df)
+    # df = summarize_event_csvs(score_file_dict)
+    # print(df)
 
     return 'Successful completion'

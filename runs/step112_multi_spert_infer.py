@@ -124,9 +124,9 @@ def cfg():
     scoring["trig_overlap_span_overlap"] = dict(score_trig=C.OVERLAP,   score_span=C.OVERLAP, score_labeled=C.LABEL)
     scoring["trig_overlap_span_partial"] = dict(score_trig=C.OVERLAP,   score_span=C.PARTIAL, score_labeled=C.LABEL)
 
-    scoring["trig_min_dist_span_exact"] =    dict(score_trig=C.MIN_DIST,  score_span=C.EXACT,     score_labeled=C.LABEL)
-    scoring["trig_min_dist_span_overlap"] =  dict(score_trig=C.MIN_DIST,  score_span=C.OVERLAP,   score_labeled=C.LABEL)
-    scoring["trig_min_dist_span_partial"] =  dict(score_trig=C.MIN_DIST,  score_span=C.PARTIAL,   score_labeled=C.LABEL)
+    # scoring["trig_min_dist_span_exact"] =    dict(score_trig=C.MIN_DIST,  score_span=C.EXACT,     score_labeled=C.LABEL)
+    # scoring["trig_min_dist_span_overlap"] =  dict(score_trig=C.MIN_DIST,  score_span=C.OVERLAP,   score_labeled=C.LABEL)
+    # scoring["trig_min_dist_span_partial"] =  dict(score_trig=C.MIN_DIST,  score_span=C.PARTIAL,   score_labeled=C.LABEL)
 
 
     """
@@ -239,8 +239,8 @@ def main(mode, source_file, source_dir, destination, config_path, model_config, 
                 sample_count = fast_count,
                 include_doc_text = True)
 
-    include_name = '-'.join(list(include))
-    get_dataset_stats(dataset_path=dataset_path, dest_path=destination, name=eval_include)
+    include_name = '_'.join(list(eval_include))
+    get_dataset_stats(dataset_path=dataset_path, dest_path=destination, name=include_name)
 
 
     # create configuration file
@@ -322,13 +322,15 @@ def main(mode, source_file, source_dir, destination, config_path, model_config, 
 
     elif mode == C.PREDICT:
 
-        brat_dir = os.path.join(destination, "brat")
-
-        predict_corpus.write_brat(brat_dir)
+        pass
 
 
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
+    if save_brat:
+        brat_dir = os.path.join(destination, "brat")
+        logging.info("fSaving brat: {brat_dir}")
+        predict_corpus.write_brat(brat_dir)
 
     return 'Successful completion'

@@ -8,6 +8,8 @@ import re
 def ATTR_TYPE_MAP(x):
     return f"{x}Val"
 
+OVERALL = "OVERALL"
+
 LABEL_DEFINITION_FILE = "label_definition.pkl"
 
 UW = 'uw'

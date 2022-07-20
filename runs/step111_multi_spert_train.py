@@ -360,7 +360,7 @@ def main(source_file, destination, config_path, model_config, spert_path, \
                     sample_count = sample_count,
                     include_doc_text = True)
 
-        include_name = '-'.join(list(include))
+        include_name = '_'.join(list(include))
         get_dataset_stats(dataset_path=path, dest_path=destination, name=include_name)
 
     # create spert types file
