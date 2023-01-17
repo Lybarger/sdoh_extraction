@@ -33,3 +33,9 @@ multitask_infer = os.path.join(analyses, "step122_multitask_infer")
 
 summary  = os.path.join(analyses, "step120_summary")
 compare_scoring_criteria = os.path.join(analyses, "step122_compare_scoring_criteria")
+
+
+error_analysis_import =     os.path.join(analyses, "step218_error_analysis_import")
+error_analysis_score =      os.path.join(analyses, "step219_error_analysis_score")
+error_analysis_figures =    os.path.join(analyses, "step220_error_analysis_figures")
+error_analysis_examples =   os.path.join(analyses, "step221_error_analysis_examples")

@@ -45,9 +45,11 @@ ex = Experiment('step120_summary')
 @ex.config
 def cfg():
 
-    dirname = 'subtask_a'
+    dirname = 'check'
 
-    source_dir = os.path.join(paths.multi_spert_train, dirname)
+    # source_dir = os.path.join(paths.multi_spert_train, dirname)
+    source_dir = os.path.join(paths.multi_spert_eval, dirname)
+
     destination = os.path.join(paths.summary,   dirname)
 
     score_files = OrderedDict([ \
@@ -150,13 +152,13 @@ def main(source_dir, destination, score_files, \
         logging.info(f"Score file: {name}")
 
         logging.info(f"Scores, all: \n{df}")
-        f = os.path.join(destination, "scores_all.csv")
+        f = os.path.join(destination, f"scores_{name}_all.csv")
         df.to_csv(f, index=False)
 
         df_overall = df[df[C.EVENT] == C.OVERALL]
         df_overall = df_overall.sort_values(C.F1, ascending=False)
         logging.info(f"Scores, overall: \n{df_overall}")
-        f = os.path.join(destination, "scores_overall.csv")
+        f = os.path.join(destination, f"scores_{name}_overall.csv")
         df_overall.to_csv(f, index=False)
 
         # pt = pd.pivot_table(df, values=["F1"], index=["event", "argument", "subtype"], columns=["run"])
