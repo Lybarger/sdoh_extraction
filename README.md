@@ -9,12 +9,16 @@ mSpERT is an augmented version of the original [Span-based Entity and Relation T
 
 __Figure 1: Multi-label Span-based Entity and Relation Transformer (mSpERT)__
 
-## SHAC
+## Data
 SHAC consists of de-identified clinial text from MIMIC-III and the University of Washington (UW) that is annotated for SDOH. SHAC was used as gold standard data in the 2022 n2c2/UW SDOH Challenge. SHAC is currently only available to individuals that participated in the challenge; however, it will be made more broadly available starting in November 2023. Access to SHAC requires PhysioNet credentialing for the MIMIC-III data and a data use agreement for the UW data.
 To access SHAC, please email both Kevin Lybarger ([klybarge@gmu.edu](mailto:klybarge@gmu.edu)) and Meliha Yetisgen ([melihay@uw.edu](mailto:melihay@uw.edu)).
 
+## Requirements
+This repository includes the code needed to load SHAC, process it into mSpERT format, and train and evaluate mSpERT. The mSpERT code is housed in a separate repository ([https://github.com/Lybarger/mspert](https://github.com/Lybarger/mspert)). 
 
-## BRAT Import
+## Pipeline
+
+### BRAT Import
 The annotated corpus in BRAT format can be import using the `step010_brat_import.py` script, for example:
 ```
 python3 runs/step010_brat_import.py with source_name='sdoh_challenge' source_dir='/path_to_data/sdoh_corpus_challenge'
@@ -26,9 +30,9 @@ Quality checks can be performed on the imported BRAT corpus using the `step012_d
 python3 runs/step012_data_checks.py with source_name='sdoh_challenge'
 ```
 
-## Extraction Model
+### Extraction Model
 
-### Training
+#### Training
 Extraction models based on the mSpERT architecture can be trained using the `step111_multi_spert_train.py` script. There are many configurable parameters; however, below is some example usage:
 ```
 python3 runs/step111_multi_spert_train.py with fast_run=False description='sdoh_challenge_e10_d02' source_name="sdoh_challenge" epochs=10  prop_drop=0.2 device=1
@@ -36,7 +40,7 @@ python3 runs/step111_multi_spert_train.py with fast_run=False description='sdoh_
 The trained model and relevant configuration files are saved in ""/path../analyses/step111_multi_spert_train/train/sdoh_challenge_e10_d02/save".
 
 
-### Inference
+#### Inference
 The extraction models trained using the `step111_multi_spert_train.py` (see above) can be used for inference using `step112_multi_spert_infer.py`. There are two inference modes: *eval* and *predict*. *eval* is intended for evaluating the performance of the trained extractor on BRAT annotated data. *predict* is intended for generating predictions for unlabeled text.
 
 #### Evaluation
