@@ -34,9 +34,11 @@ python import_corpus.py --source /path/to/challenge/data/directory/ --output_fil
 
 #### Training
 mSpERT can be trained on SHAC using the `train_mspert.py` script. Below is example useage:
+
 ```
 python train_mspert.py --source_file /path/to/corpus.pkl  --destination /path/to/output/directory/ --mspert_path /path/to/mspert/directory/ --model_path "emilyalsentzer/Bio_ClinicalBERT" --tokenizer_path "emilyalsentzer/Bio_ClinicalBERT" --epochs 1 
 ```
+
 The trained model and relevant configuration files are saved in "/path/to/output/directory/save/".
 
 
@@ -45,7 +47,7 @@ The extraction models trained using the `step111_multi_spert_train.py` (see abov
 
 #### Evaluation
 Below is example usage for applying a trained extractor with data with supervised labels (BRAT):
-```{.line-numbers}
+```
 python3 runs/step112_multi_spert_infer.py with fast_run=False description='sdoh_challenge_dev_uw' device=1 mode='eval' source_name='sdoh_challenge' eval_subset='dev'  source_subset='uw'    model_path="/path../analyses/step111_multi_spert_train/train/sdoh_challenge_e10_d02/save"
 ```
 
