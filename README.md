@@ -7,6 +7,9 @@ mSpERT is an augmented version of the original [Span-based Entity and Relation T
 
 ![Figure 1](figures/spert_multilabel.drawio.png)
 
+
+<img src="figures/spert_multilabel.drawio.png" width=50% height=50%>
+
 ## SHAC
 SHAC consists of de-identified clinial text from MIMIC-III and the University of Washington (UW) that is annotated for SDOH. SHAC was used as gold standard data in the 2022 n2c2/UW SDOH Challenge. SHAC is currently only available to individuals that participated in the challenge; however, it will be made more broadly available starting in November 2023. Access to SHAC requires PhysioNet credentialing for the MIMIC-III data and a data use agreement for the UW data.
 To access SHAC, please email both Kevin Lybarger ([klybarge@gmu.edu](mailto:klybarge@gmu.edu)) and Meliha Yetisgen ([melihay@uw.edu](mailto:melihay@uw.edu)).
