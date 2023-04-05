@@ -13,6 +13,9 @@ __Figure 1: Multi-label Span-based Entity and Relation Transformer (mSpERT)__
 SHAC consists of de-identified clinial text from MIMIC-III and the University of Washington (UW) that is annotated for SDOH. SHAC was used as gold standard data in the 2022 n2c2/UW SDOH Challenge. SHAC is currently only available to individuals that participated in the challenge; however, it will be made more broadly available starting in November 2023. Access to SHAC requires PhysioNet credentialing for the MIMIC-III data and a data use agreement for the UW data.
 To access SHAC, please email both Kevin Lybarger ([klybarge@gmu.edu](mailto:klybarge@gmu.edu)) and Meliha Yetisgen ([melihay@uw.edu](mailto:melihay@uw.edu)).
 
+## Trained Models
+Trained mSpERT SDOH extraction models are available. To access the trained models, please email both Kevin Lybarger ([klybarge@gmu.edu](mailto:klybarge@gmu.edu)) and Meliha Yetisgen ([melihay@uw.edu](mailto:melihay@uw.edu)).
+
 ## Requirements
 1. _mSpERT_ - This repository includes the code needed to load SHAC, process it into mSpERT format, and train and evaluate mSpERT. The mSpERT code is housed in a separate repository and should downloaded or cloned from: [https://github.com/Lybarger/mspert](https://github.com/Lybarger/mspert). 
 2. _Evaluation_ - This repository utilizes the scoring routine from the n2c2/UW SDOH Challenge. Instructions for pip installing the scoring routine are available at:  [https://github.com/Lybarger/brat_scoring](https://github.com/Lybarger/brat_scoring).
