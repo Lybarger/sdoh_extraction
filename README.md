@@ -25,41 +25,36 @@ Trained mSpERT SDOH extraction models are available. To access the trained model
 ## Pipeline
 
 ### BRAT Import
-The annotated corpus in BRAT format can be import using the `step010_brat_import.py` script, for example:
+SHAC is annotated in BRAT format. The SHAC corpus can be imported into a Python-based data structure as follow:
 ```
-python3 runs/step010_brat_import.py with source_name='sdoh_challenge' source_dir='/path_to_data/sdoh_corpus_challenge'
-```
-
-
-Quality checks can be performed on the imported BRAT corpus using the `step012_data_checks.py` script, for example:
-```
-python3 runs/step012_data_checks.py with source_name='sdoh_challenge'
+python import_corpus.py --source /path/to/challenge/data/directory/ --output_file /path/to/corpus.pkl
 ```
 
 ### Extraction Model
 
 #### Training
-Extraction models based on the mSpERT architecture can be trained using the `step111_multi_spert_train.py` script. There are many configurable parameters; however, below is some example usage:
+mSpERT can be trained on SHAC using the `train_mspert.py` script. Below is example useage:
+
 ```
-python3 runs/step111_multi_spert_train.py with fast_run=False description='sdoh_challenge_e10_d02' source_name="sdoh_challenge" epochs=10  prop_drop=0.2 device=1
+python train_mspert.py --source_file /home/lybarger/sdoh_challenge/output/corpus.pkl  --destination /home/lybarger/sdoh_challenge/output/model/ --mspert_path /home/lybarger/mspert/ --model_path "emilyalsentzer/Bio_ClinicalBERT" --tokenizer_path "emilyalsentzer/Bio_ClinicalBERT" --epochs 10 --train_subset train --valid_subset dev --train_source None --valid_source uw
 ```
-The trained model and relevant configuration files are saved in ""/path../analyses/step111_multi_spert_train/train/sdoh_challenge_e10_d02/save".
+
+The trained model and relevant configuration files are saved in "/path/to/output/directory/save/".
 
 
 #### Inference
-The extraction models trained using the `step111_multi_spert_train.py` (see above) can be used for inference using `step112_multi_spert_infer.py`. There are two inference modes: *eval* and *predict*. *eval* is intended for evaluating the performance of the trained extractor on BRAT annotated data. *predict* is intended for generating predictions for unlabeled text.
+The trained mSpERT model can be used in inference using `infer_mspert.py`, which has two modes of operation (`mode` argument). In `eval` mode, the trained mSpERT model is applied to the annotated SHAC data for evaluating performance. In the `predict` mode, the trained mSpERT model is applied to a directory of unlabeled text and no evaluation is performed. In both `eval` and `predict` mode, the script will save the predictions in a JSON mSpERT format. The predictions can also be saved in BRAT format (`save_brat` is True).
 
-#### Evaluation
-Below is example usage for applying a trained extractor with data with supervised labels (BRAT):
+*Evaluation*
+Below is example usage for applying a trained extractor to data with BRAT labels (i.e. SHAC):
 ```
-python3 runs/step112_multi_spert_infer.py with fast_run=False description='sdoh_challenge_dev_uw' device=1 mode='eval' source_name='sdoh_challenge' eval_subset='dev'  source_subset='uw'    model_path="/path../analyses/step111_multi_spert_train/train/sdoh_challenge_e10_d02/save"
+python infer_mspert.py --source_file /home/lybarger/sdoh_challenge/output/corpus.pkl --destination /home/lybarger/sdoh_challenge/output/eval/ --mspert_path /home/lybarger/mspert/ --mode eval --eval_subset dev --eval_source uw --model_path /home/lybarger/sdoh_challenge/output/model/save/ --device 0
 ```
 
-
-#### Prediction
-Below is example usage for applying a trained extractor to a directory of text (\*.txt) files. NOTE that the modell has only been trained and evaluated on social history section text. The directory of text files should be limited to social history section text, to avoid false positives.
+*Prediction*
+Below is example usage for applying a trained extractor to a directory of text (\*.txt) files. NOTE that the model has only been trained and evaluated on social history section text. The directory of text files should be limited to social history section text, to avoid false positives.
 ```
-python3 runs/step112_multi_spert_infer.py with fast_run=False description='sdoh_challenge_predict' device=1 mode='predict' source_dir='/path../dir_with_text_files/' subset=None model_path="/path../analyses/step111_multi_spert_train/train/sdoh_challenge_e10_d02/save"
+python infer_mspert.py --source_dir /home/lybarger/data/social_determinants_challenge_text/ --destination /home/lybarger/sdoh_challenge/output/predict/ --mspert_path /home/lybarger/mspert/ --mode predict --model_path /home/lybarger/sdoh_challenge/output/model/save/ --device 0
 ```
 
 ## References
