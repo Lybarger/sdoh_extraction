@@ -5,7 +5,7 @@ This repository trains and evaluates a deep learning information extraction mode
 
 mSpERT is an augmented version of the original [Span-based Entity and Relation Transformer](https://ebooks.iospress.nl/volumearticle/55116) (SpERT) model developed by Eberts and Ulges [4]. SpERT jointly extracts entities and relations using BERT with output layers that classify spans and predict span relations. SpERT's span-based architecture allows overlapping span predictions but only allows a single label to be assigned to each span; however, the SHAC annotations frequently assign multiple labels to a single span. To adapt SpERT to SHAC, we developed mSpERT. We added additional classification layers to SpERT to accommodate multi-label span label. Figure 1 presents the mSpERT framework, which includes three classification layers: 1) Entity Type, 2) Entity Subtype, and 3) Relation.  The Entity Type and Relation layers are identical to the original SpERT, and the Entity Subtype layer is incorporated to generate multi-label span predictions.  mSpERT was developed by cloning the [original SpERT GitHub repository](https://github.com/lavis-nlp/spert).
 
-<img src="figures/spert_multilabel.drawio.png" width=75% height=750%>
+<img src="figures/spert_multilabel.drawio.png" width=75% height=75%>
 *Figure 1: Multi-label Span-based Entity and Relation Transformer (mSpERT)*
 
 ## SHAC
