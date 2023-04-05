@@ -27,17 +27,17 @@ Trained mSpERT SDOH extraction models are available. To access the trained model
 ### BRAT Import
 SHAC is annotated in BRAT format. The SHAC corpus can be imported into a Python-based data structure as follow:
 ```
-python import_corpus.py --source /path/to/challenge/data/directory/ --output_file /home/corpus.pkl
+python import_corpus.py --source /path/to/challenge/data/directory/ --output_file /path/to/corpus.pkl
 ```
 
 ### Extraction Model
 
 #### Training
-Extraction models based on the mSpERT architecture can be trained using the `step111_multi_spert_train.py` script. There are many configurable parameters; however, below is some example usage:
+mSpERT can be trained on SHAC using the `train_mspert.py` script. Below is example useage:
 ```
-python3 runs/step111_multi_spert_train.py with fast_run=False description='sdoh_challenge_e10_d02' source_name="sdoh_challenge" epochs=10  prop_drop=0.2 device=1
+python train_mspert.py --source_file /path/to/corpus.pkl  --destination /path/to/output/directory/ --mspert_path /path/to/mspert/directory/
 ```
-The trained model and relevant configuration files are saved in ""/path../analyses/step111_multi_spert_train/train/sdoh_challenge_e10_d02/save".
+The trained model and relevant configuration files are saved in "/path/to/output/directory/save/".
 
 
 #### Inference
