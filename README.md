@@ -25,15 +25,9 @@ Trained mSpERT SDOH extraction models are available. To access the trained model
 ## Pipeline
 
 ### BRAT Import
-The annotated corpus in BRAT format can be import using the `step010_brat_import.py` script, for example:
+SHAC is annotated in BRAT format. The SHAC corpus can be imported into a Python-based data structure as follow:
 ```
-python3 runs/step010_brat_import.py with source_name='sdoh_challenge' source_dir='/path_to_data/sdoh_corpus_challenge'
-```
-
-
-Quality checks can be performed on the imported BRAT corpus using the `step012_data_checks.py` script, for example:
-```
-python3 runs/step012_data_checks.py with source_name='sdoh_challenge'
+python import_corpus.py --source /path/to/challenge/data/directory/ --output_file /home/corpus.pkl
 ```
 
 ### Extraction Model
