@@ -34,9 +34,9 @@ python import_corpus.py --source /path/to/challenge/data/directory/ --output_fil
 
 #### Training
 mSpERT can be trained on SHAC using the `train_mspert.py` script. Below is example useage:
-```
+`
 python train_mspert.py --source_file /path/to/corpus.pkl  --destination /path/to/output/directory/ --mspert_path /path/to/mspert/directory/ --model_path "emilyalsentzer/Bio_ClinicalBERT" --tokenizer_path "emilyalsentzer/Bio_ClinicalBERT" --epochs 1 
-```
+`
 The trained model and relevant configuration files are saved in "/path/to/output/directory/save/".
 
 
