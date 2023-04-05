@@ -16,7 +16,7 @@ To access SHAC, please email both Kevin Lybarger ([klybarge@gmu.edu](mailto:klyb
 ## Requirements
 1. _mSpERT_ - This repository includes the code needed to load SHAC, process it into mSpERT format, and train and evaluate mSpERT. The mSpERT code is housed in a separate repository and should downloaded or cloned from: [https://github.com/Lybarger/mspert](https://github.com/Lybarger/mspert). 
 2. _Evaluation_ - This repository utilizes the scoring routine from the n2c2/UW SDOH Challenge. Instructions for pip installing the scoring routine are available at:  [https://github.com/Lybarger/brat_scoring](https://github.com/Lybarger/brat_scoring).
-3. _Requirements doc_ - A requirements document, [requirements.txt](requirements.txt) is included for the remaining dependancies.
+3. _Requirements doc_ - A requirements document, [requirements.txt](requirements.txt), is included for the remaining dependancies.
 
 
 ## Pipeline
