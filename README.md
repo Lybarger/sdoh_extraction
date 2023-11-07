@@ -10,10 +10,12 @@ mSpERT is an augmented version of the original [Span-based Entity and Relation T
 __Figure 1: Multi-label Span-based Entity and Relation Transformer (mSpERT)__
 
 ## Data (updated 11/07/2023)
-SHAC consists of de-identified clinial text from MIMIC-III and the University of Washington (UW) that is annotated for SDOH. SHAC was used as gold standard data in the 2022 n2c2/UW SDOH Challenge. SHAC is currently only available to individuals that participated in the challenge. SHAC will be made publicly available in 2024 through a data use agreement and PhysioNet credentialing. We apologize for the delayed release and are currently working to finalize the necessary agreements with our legal team. 
+SHAC consists of de-identified clinial text from MIMIC-III and the University of Washington (UW) that is annotated for SDOH. SHAC was used as gold standard data in the 2022 n2c2/UW SDOH Challenge. SHAC is currently only available to individuals that participated in the challenge. *SHAC will be made publicly available in 2024 through a data use agreement and PhysioNet credentialing.* We apologize for the delayed release and are currently working to finalize the necessary agreements with our legal team. 
 
 If you have any questions, please let us know,
+    
     Kevin Lybarger ([klybarge@gmu.edu](mailto:klybarge@gmu.edu))
+    
     Meliha Yetisgen ([melihay@uw.edu](mailto:melihay@uw.edu))
 
 ## Trained Models
