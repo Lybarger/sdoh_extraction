@@ -5,12 +5,8 @@ This repository trains and evaluates a deep learning information extraction mode
 
 mSpERT is an augmented version of the original [Span-based Entity and Relation Transformer](https://ebooks.iospress.nl/volumearticle/55116) (SpERT) model developed by Eberts and Ulges [4]. SpERT jointly extracts entities and relations using BERT with output layers that classify spans and predict span relations. SpERT's span-based architecture allows overlapping span predictions but only allows a single label to be assigned to each span; however, the SHAC annotations frequently assign multiple labels to a single span. To adapt SpERT to SHAC, we developed mSpERT. We added additional classification layers to SpERT to accommodate multi-label span label. Figure 1 presents the mSpERT framework, which includes three classification layers: 1) Entity Type, 2) Entity Subtype, and 3) Relation.  The Entity Type and Relation layers are identical to the original SpERT, and the Entity Subtype layer is incorporated to generate multi-label span predictions.  mSpERT was developed by cloning the [original SpERT GitHub repository](https://github.com/lavis-nlp/spert).
 
-<img src="figures/spert_multilabel.drawio.png" width=75% height=75%>
-
-__Figure 1: Multi-label Span-based Entity and Relation Transformer (mSpERT)__
-
-## Data (updated 11/07/2023)
-SHAC consists of de-identified clinial text from MIMIC-III and the University of Washington (UW) that is annotated for SDOH. SHAC was used as gold standard data in the 2022 n2c2/UW SDOH Challenge. SHAC is currently only available to individuals that participated in the challenge. *SHAC will be made publicly available in 2024 through a data use agreement and PhysioNet credentialing.* We apologize for the delayed release and are currently working to finalize the necessary agreements with our legal team. 
+## Data 
+SHAC consists of de-identified clinial text from MIMIC-III and the University of Washington (UW) that is annotated for SDOH. SHAC was used as gold standard data in the 2022 n2c2/UW SDOH Challenge. SHAC is currently only available to individuals that participated in the challenge. **SHAC will be made publicly available in 2024 through a data use agreement and PhysioNet credentialing.** We apologize for the delayed release and are currently working to finalize the necessary agreements with our legal team. **(updated 11/07/2023)**
 
 If you have any questions, please let us know,
 
@@ -20,6 +16,10 @@ Meliha Yetisgen ([melihay@uw.edu](mailto:melihay@uw.edu))
 
 ## Trained Models
 Trained mSpERT SDOH extraction models are available. To access the trained models, please email both Kevin Lybarger ([klybarge@gmu.edu](mailto:klybarge@gmu.edu)) and Meliha Yetisgen ([melihay@uw.edu](mailto:melihay@uw.edu)).
+
+<img src="figures/spert_multilabel.drawio.png" width=75% height=75%>
+
+__Figure 1: Multi-label Span-based Entity and Relation Transformer (mSpERT)__
 
 ## Requirements
 1. _mSpERT_ - This repository includes the code needed to load SHAC, process it into mSpERT format, and train and evaluate mSpERT. The mSpERT code is housed in a separate repository and should downloaded or cloned from: [https://github.com/Lybarger/mspert](https://github.com/Lybarger/mspert). 
